@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.26 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.28 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -248,6 +248,14 @@ fn main() {
             // quitting the app - Speusis Downloader keeps running in the tray and
             // downloads keep going, same as IDM/most download managers.
             // The only real quit path is the tray menu's "Exit Speusis Downloader".
+            // Scoped to the main window only - this used to apply to every
+            // window including native panel dialogs (Options/RSS/About/etc),
+            // so closing one of those from its own titlebar button silently
+            // hid it instead of actually closing it, leaving it running
+            // invisibly in the background instead of being freed.
+            if window.label() != "main" {
+                return;
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
@@ -493,16 +501,30 @@ fn main() {
                 ],
             )?;
 
+            /// Shows, un-minimizes, and focuses the main window - the same
+            /// three-call sequence already used by the single-instance and
+            /// launch-args handlers above, now reused here too. Previously
+            /// this only called .show()+.set_focus(): if the window had been
+            /// minimized (not hidden-to-tray, but actually minimized to the
+            /// taskbar) rather than closed, show()/set_focus() alone don't
+            /// reliably de-minimize it on Windows, which would make every
+            /// tray menu item and the tray icon's own click look like it
+            /// was doing nothing.
+            fn bring_main_to_front(app: &tauri::AppHandle) {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.unminimize();
+                    let _ = win.set_focus();
+                }
+            }
+
             /// Shows + focuses the main window, then forwards `command` to
             /// the frontend's existing `nativeMenuActions` dispatch table
             /// (app.js already has real handlers for "add-url", "settings",
             /// "about", "registration", etc. - this reuses that, it isn't
             /// new frontend work).
             fn show_and_forward(app: &tauri::AppHandle, command: &str) {
-                if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                }
+                bring_main_to_front(app);
                 let _ = app.emit("menu-command", command);
             }
 
@@ -526,13 +548,16 @@ fn main() {
             TrayIconBuilder::with_id("speusis-main-tray")
                 .menu(&menu)
                 .icon(app.default_window_icon().unwrap().clone())
+                // On Windows this defaults to true - meaning a plain left
+                // click was showing the context menu instead of ever
+                // reaching our Click handler below, which is exactly why
+                // clicking the tray icon (and by extension the "Show"
+                // menu item's underlying logic) could look completely dead.
+                // Left click now only ever triggers bring_main_to_front();
+                // the menu itself still opens correctly on right click.
+                .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
-                    }
+                    "show" => bring_main_to_front(app),
                     "add-url" => show_and_forward(app, "add-url"),
                     "resume-all" => show_and_forward(app, "resume-all"),
                     "stop-all" => show_and_forward(app, "stop-all"),
@@ -547,20 +572,19 @@ fn main() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    // Left-click the tray icon itself (not the menu) shows
-                    // the window directly - same as double-clicking IDM's
-                    // tray icon.
+                    // Left-click brings the window forward - same as IDM's
+                    // tray icon. A real double-click naturally fires this as
+                    // two rapid clicks, so it's already covered without
+                    // needing a separate DoubleClick match (the exact shape
+                    // of that variant differs enough across Tauri versions
+                    // that guessing at it isn't worth the risk here).
                     if let tauri::tray::TrayIconEvent::Click {
                         button: tauri::tray::MouseButton::Left,
                         button_state: tauri::tray::MouseButtonState::Up,
                         ..
                     } = event
                     {
-                        let app = tray.app_handle();
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
+                        bring_main_to_front(tray.app_handle());
                     }
                 })
                 .build(app)?;

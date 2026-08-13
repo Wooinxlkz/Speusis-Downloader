@@ -174,6 +174,22 @@ body.native-panel-window .panel-box {
 }
 .dialog-close:focus-visible { outline:2px solid var(--accent-hl); outline-offset:1px; }
 .dialog-titlebar > svg:not(.dialog-title-icon) { flex-shrink:0; }
+
+/* Invisible edge/corner hit-zones for native window resizing (see
+   startResizeDragging() in app.js). Only ever appended inside a native
+   panel window body, never in the main window's own overlay panels. */
+.native-resize-grip { position:fixed; z-index:50; }
+.native-resize-n, .native-resize-s { left:8px; right:8px; height:6px; cursor:ns-resize; }
+.native-resize-n { top:0; }
+.native-resize-s { bottom:0; }
+.native-resize-e, .native-resize-w { top:8px; bottom:8px; width:6px; cursor:ew-resize; }
+.native-resize-e { right:0; }
+.native-resize-w { left:0; }
+.native-resize-ne, .native-resize-nw, .native-resize-se, .native-resize-sw { width:12px; height:12px; }
+.native-resize-ne { top:0; right:0; cursor:nesw-resize; }
+.native-resize-nw { top:0; left:0; cursor:nwse-resize; }
+.native-resize-se { bottom:0; right:0; cursor:nwse-resize; }
+.native-resize-sw { bottom:0; left:0; cursor:nesw-resize; }
 .settings-box { width:640px; max-width:calc(100vw - 24px); }
 #settingsPanel .settings-box { max-height:calc(100vh - 32px); }
 .settings-tabs {

@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.26 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.28 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.26";
+let _appVersion = "0.5.28";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -2167,20 +2167,46 @@ async function initializeNativePanel() {
   }
 }
 
+// Mirrors native_panel_config's (width, height) in commands.rs. Used as a
+// floor so tabbed/dynamic panels (Options especially - only the active tab
+// is in the DOM, the rest are display:none) never shrink to fit whichever
+// tab happens to be showing instead of their intended comfortable size.
+const NATIVE_PANEL_SIZES = {
+  addUrlPanel: [560, 420],
+  settingsPanel: [700, 620],
+  schedulerPanel: [560, 520],
+  loginsPanel: [560, 460],
+  rssPanel: [620, 520],
+  batchPanel: [640, 520],
+  createTorrentPanel: [560, 400],
+  aboutPanel: [440, 430],
+  helpPanel: [440, 450],
+  registrationPanel: [520, 600],
+  grabberPanel: [660, 560],
+  torrentFilesPanel: [600, 460],
+  renameDialog: [480, 300],
+  propertiesDialog: [520, 420],
+  deleteConfirmDialog: [520, 360],
+};
+
 function installNativePanelSizing() {
   if (!isNativePanelWindow || !nativePanelName || !window.ResizeObserver) return;
   const panel = document.getElementById(nativePanelName);
   const box = panel?.querySelector(".panel-box");
   if (!box || !api.resizePanel) return;
 
+  const [minWidth, minHeight] = NATIVE_PANEL_SIZES[nativePanelName] || [320, 220];
+
   let lastWidth = 0;
   let lastHeight = 0;
   let resizeFrame = 0;
+  let userResized = false;
   const resizeWindowToCard = () => {
     resizeFrame = 0;
+    if (userResized) return; // the user took manual control via a resize handle - stop fighting them
     const rect = box.getBoundingClientRect();
-    const width = Math.max(320, Math.ceil(rect.width + 24));
-    const height = Math.max(220, Math.ceil(rect.height + 24));
+    const width = Math.max(minWidth, Math.ceil(rect.width + 24));
+    const height = Math.max(minHeight, Math.ceil(rect.height + 24));
     if (width === lastWidth && height === lastHeight) return;
     lastWidth = width;
     lastHeight = height;
@@ -2192,6 +2218,24 @@ function installNativePanelSizing() {
 
   new ResizeObserver(scheduleResize).observe(box);
   scheduleResize();
+
+  // Real OS-level edge/corner resizing, same idea as startDragging() above -
+  // Tauri exposes startResizeDragging(direction) specifically for windows
+  // with decorations(false), since there's no native resize border to grab.
+  const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+  if (!currentWindow?.startResizeDragging) return;
+  const DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+  DIRS.forEach(dir => {
+    const grip = document.createElement("div");
+    grip.className = `native-resize-grip native-resize-${dir}`;
+    grip.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      userResized = true;
+      currentWindow.startResizeDragging(dir).catch(() => {});
+    });
+    panel.appendChild(grip);
+  });
 }
 
 async function loadDownloads() {
@@ -2263,7 +2307,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.26 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.28 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
