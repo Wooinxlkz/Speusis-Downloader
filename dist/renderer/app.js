@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.24 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.25 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -6,8 +6,9 @@ const nativePanelQuery = new URLSearchParams(window.location.search);
 const nativePanelName = nativePanelQuery.get("panel");
 const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
+if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.24";
+let _appVersion = "0.5.25";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -2153,7 +2154,7 @@ async function initializeNativePanel() {
       openPropertiesDialog(nativePanelTaskId);
       break;
     case "deleteConfirmDialog":
-      await showDeleteConfirm(nativePanelTaskId);
+      showDeleteConfirm(nativePanelTaskId);
       break;
     case "registrationPanel":
       openRegistrationPanel();
@@ -2164,6 +2165,33 @@ async function initializeNativePanel() {
       break;
     }
   }
+}
+
+function installNativePanelSizing() {
+  if (!isNativePanelWindow || !nativePanelName || !window.ResizeObserver) return;
+  const panel = document.getElementById(nativePanelName);
+  const box = panel?.querySelector(".panel-box");
+  if (!box || !api.resizePanel) return;
+
+  let lastWidth = 0;
+  let lastHeight = 0;
+  let resizeFrame = 0;
+  const resizeWindowToCard = () => {
+    resizeFrame = 0;
+    const rect = box.getBoundingClientRect();
+    const width = Math.max(320, Math.ceil(rect.width + 24));
+    const height = Math.max(220, Math.ceil(rect.height + 24));
+    if (width === lastWidth && height === lastHeight) return;
+    lastWidth = width;
+    lastHeight = height;
+    api.resizePanel(nativePanelName, width, height).catch(() => {});
+  };
+  const scheduleResize = () => {
+    if (!resizeFrame) resizeFrame = requestAnimationFrame(resizeWindowToCard);
+  };
+
+  new ResizeObserver(scheduleResize).observe(box);
+  scheduleResize();
 }
 
 async function loadDownloads() {
@@ -2179,6 +2207,7 @@ async function init() {
   await buildCatTree();
   await loadDownloads();
   await initializeNativePanel();
+  installNativePanelSizing();
   drawSpeedChart(0);
   initUpdateBanner();
   initClipboardMonitor();
@@ -2234,7 +2263,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.24 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.25 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));

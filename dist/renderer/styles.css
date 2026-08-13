@@ -127,6 +127,19 @@ svg { display:block; flex-shrink:0; }
   padding:12px; overflow:auto; overscroll-behavior:contain;
 }
 .overlay-panel.hidden { display:none; }
+body.native-panel-window {
+  background:var(--bg);
+  overflow:hidden;
+}
+body.native-panel-window .overlay-panel {
+  background:var(--bg);
+  padding:12px;
+  overflow:hidden;
+}
+body.native-panel-window .panel-box {
+  max-width:none;
+  max-height:none;
+}
 .panel-box {
   background:var(--panel); border:1px solid var(--border);
   border-radius:7px; width:520px; max-width:calc(100vw - 24px); box-shadow:var(--shadow); overflow:hidden;
