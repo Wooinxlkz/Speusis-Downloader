@@ -1,0 +1,25 @@
+# Node
+node_modules/
+
+# Tauri / Rust build output
+src-tauri/target/
+speusis-core/target/
+
+# Rust lock files
+src-tauri/Cargo.lock
+speusis-core/Cargo.lock
+
+# Build output
+dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
