@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Speusis</title>
+  <style>
+    :root{
+      --bg:       #09090b;
+      --surface:  #18181b;
+      --surface2: #27272a;
+      --border:   #3f3f46;
+      --text:     #fafafa;
+      --muted:    #a1a1aa;
+      --green:    #4ade80;
+      --red:      #f87171;
+      --radius:   6px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{width:280px;font-family:"Segoe UI",system-ui,sans-serif;font-size:13px;background:var(--bg);color:var(--text);}
+    .header{
+      background:var(--surface);border-bottom:1px solid var(--border);
+      padding:11px 14px;display:flex;align-items:center;gap:10px;
+    }
+    .logo{
+      width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;
+      background:var(--surface2);border:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .logo img{width:100%;height:100%;object-fit:cover;}
+    .header-text strong{display:block;font-size:13px;color:var(--text);}
+    .header-text span{font-size:11px;color:var(--muted);}
+    .section{padding:11px 14px;border-bottom:1px solid var(--border);}
+    .section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+    .url-form{display:flex;flex-direction:column;gap:6px;}
+    .url-form input{
+      background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+      color:var(--text);padding:6px 10px;font:inherit;font-size:12px;outline:none;width:100%;
+      transition:border-color .12s;
+    }
+    .url-form input:focus{border-color:#71717a;box-shadow:0 0 0 2px rgba(113,113,122,.2);}
+    .url-form input::placeholder{color:var(--muted);}
+    .btn-row{display:flex;gap:6px;}
+    .btn{
+      flex:1;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);
+      cursor:pointer;font:inherit;font-size:12px;font-weight:500;
+      transition:background .12s,border-color .12s;
+    }
+    .btn-primary{background:#fafafa;color:#09090b;border-color:#fafafa;}
+    .btn-primary:hover{background:#e4e4e7;border-color:#e4e4e7;}
+    .btn-secondary{background:var(--surface2);color:var(--text);border-color:var(--border);}
+    .btn-secondary:hover{background:var(--border);}
+    .info-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:3px 0;}
+    .info-val{color:var(--text);}
+    .status-row{
+      display:flex;align-items:center;gap:7px;
+      padding:9px 14px;font-size:11px;color:var(--muted);
+      border-top:1px solid var(--border);
+    }
+    .status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;}
+    .status-dot.offline{background:var(--red);}
+    #feedbackMsg{font-size:11px;padding:0 14px 8px;color:var(--green);min-height:20px;}
+    #feedbackMsg.error{color:var(--red);}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo"><img src="icon128.png" alt="Speusis"/></div>
+    <div class="header-text">
+      <strong>Speusis</strong>
+      <span id="popupVersion">v0.32 · Download Manager</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Add Download</div>
+    <form class="url-form" id="urlForm">
+      <input type="text" id="urlInput" placeholder="Paste URL or magnet link…" required autocomplete="off"/>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">Download Now</button>
+        <button type="button" class="btn btn-secondary" id="btnLater">Queue</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="feedbackMsg"></div>
+
+  <div class="section">
+    <div class="section-title">Status</div>
+    <div class="info-row"><span>Speusis desktop</span><span class="info-val" id="desktopStatus">Checking…</span></div>
+    <div class="info-row"><span>Listener</span><span class="info-val">127.0.0.1:9999</span></div>
+  </div>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting to Speusis…</span>
+  </div>
+
+  <script>
+    document.getElementById("popupVersion").textContent =
+      "v" + chrome.runtime.getManifest().version + " · Download Manager";
+    const ENDPOINT = "http://127.0.0.1:9999";
+    async function checkStatus() {
+      try {
+        const res = await fetch(ENDPOINT + "/health");
+        if (res.ok) {
+          document.getElementById("desktopStatus").textContent = "Running";
+          document.getElementById("statusDot").classList.remove("offline");
+          document.getElementById("statusText").textContent = "Speusis is running";
+        } else throw new Error();
+      } catch {
+        document.getElementById("desktopStatus").textContent = "Offline";
+        document.getElementById("statusDot").classList.add("offline");
+        document.getElementById("statusText").textContent = "Speusis desktop is not running";
+      }
+    }
+    async function sendDownload(url, later) {
+      try {
+        const res = await fetch(ENDPOINT + "/downloads", {
+          method:"POST", headers:{"content-type":"application/json"},
+          body: JSON.stringify({ url, start: !later }),
+        });
+        if (!res.ok) throw new Error(res.status);
+        showFeedback(later ? "Added to queue!" : "Download started!", false);
+        document.getElementById("urlInput").value = "";
+      } catch(err) { showFeedback("Speusis is not running: " + err.message, true); }
+    }
+    function showFeedback(msg, error) {
+      const el = document.getElementById("feedbackMsg");
+      el.textContent = msg; el.className = error ? "error" : "";
+      clearTimeout(showFeedback._t);
+      showFeedback._t = setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
+    }
+    document.getElementById("urlForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const url = document.getElementById("urlInput").value.trim();
+      if (url) sendDownload(url, false);
+    });
+    document.getElementById("btnLater").addEventListener("click", () => {
+      const url = document.getElementById("urlInput").value.trim();
+      if (url) sendDownload(url, true);
+    });
+    checkStatus();
+    setInterval(checkStatus, 15000);
+  </script>
+</body>
+</html>

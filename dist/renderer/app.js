@@ -1,9 +1,13 @@
-/* ─── Speusis v0.5.22 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.24 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
+const nativePanelQuery = new URLSearchParams(window.location.search);
+const nativePanelName = nativePanelQuery.get("panel");
+const nativePanelTaskId = nativePanelQuery.get("id");
+const isNativePanelWindow = Boolean(nativePanelName);
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.22";
+let _appVersion = "0.5.24";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -96,6 +100,11 @@ function resetDialogPosition(panel) {
 function openPanel(panel, taskId) {
   if (!panel) return;
 
+  if (!isNativePanelWindow) {
+    api.openPanel(panel.id, taskId).catch(() => {});
+    return;
+  }
+
   ALL_PANELS.forEach(other => {
     if (other !== panel) closePanel(other);
   });
@@ -109,6 +118,16 @@ function openPanel(panel, taskId) {
 
 function closePanel(panel) {
   if (!panel) return;
+
+  if (!isNativePanelWindow) {
+    api.closePanel(panel.id).catch(() => {});
+    return;
+  }
+  if (panel.id === nativePanelName) {
+    api.closePanel(panel.id).catch(() => {});
+    return;
+  }
+
   panel.classList.add("hidden");
   panel.setAttribute("aria-hidden", "true");
   delete panel.dataset.taskId;
@@ -185,6 +204,13 @@ function installDialogDragging() {
       if (event.button !== 0) return;
       if (event.target.closest("button, a, input, select, textarea")) return;
       event.preventDefault();
+
+      if (isNativePanelWindow) {
+        const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
+        currentWindow?.startDragging?.().catch?.(() => {});
+        return;
+      }
+
       const rect = box.getBoundingClientRect();
       const startX = event.clientX;
       const startY = event.clientY;
@@ -222,6 +248,86 @@ function installDialogDragging() {
   });
 }
 installDialogDragging();
+
+/* ── Resizable download-list columns ───────────────────────────── */
+const tablePanel = document.querySelector(".table-panel");
+const tableHeader = tablePanel?.querySelector(".tbl-header");
+const columnStorageKey = "speusis.downloadTable.columnWidths";
+const columnDefaults = [
+  "minmax(180px, 1fr)", "32px", "90px", "120px", "78px", "110px", "118px",
+];
+const columnMinimums = [160, 28, 70, 90, 70, 90, 80];
+let columnWidths = columnDefaults.map(() => null);
+
+try {
+  const storedWidths = JSON.parse(localStorage.getItem(columnStorageKey) || "null");
+  if (Array.isArray(storedWidths) && storedWidths.length === columnDefaults.length) {
+    columnWidths = storedWidths.map((width, index) => (
+      Number.isFinite(width) && width >= columnMinimums[index] ? Math.round(width) : null
+    ));
+  }
+} catch {}
+
+function applyColumnWidths() {
+  if (!tablePanel) return;
+  const tracks = columnWidths.map((width, index) => (
+    width ? `${width}px` : columnDefaults[index]
+  ));
+  tablePanel.style.setProperty("--tbl-cols", tracks.join(" "));
+}
+
+function saveColumnWidths() {
+  try {
+    localStorage.setItem(columnStorageKey, JSON.stringify(columnWidths));
+  } catch {}
+}
+
+function installColumnResizing() {
+  if (!tablePanel || !tableHeader) return;
+  tableHeader.querySelectorAll(".tbl-cell").forEach((cell, index) => {
+    const handle = document.createElement("div");
+    handle.className = "tbl-resize-handle";
+    handle.setAttribute("aria-hidden", "true");
+    cell.appendChild(handle);
+
+    handle.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const startX = event.clientX;
+      const startWidth = cell.getBoundingClientRect().width;
+      columnWidths[index] = Math.max(columnMinimums[index], Math.round(startWidth));
+      applyColumnWidths();
+      handle.setPointerCapture?.(event.pointerId);
+      document.body.classList.add("tbl-column-resizing");
+
+      const move = moveEvent => {
+        const nextWidth = Math.max(
+          columnMinimums[index],
+          Math.round(startWidth + moveEvent.clientX - startX),
+        );
+        columnWidths[index] = nextWidth;
+        applyColumnWidths();
+      };
+      const end = () => {
+        handle.releasePointerCapture?.(event.pointerId);
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", end);
+        document.removeEventListener("pointercancel", end);
+        document.body.classList.remove("tbl-column-resizing");
+        saveColumnWidths();
+      };
+
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", end);
+      document.addEventListener("pointercancel", end);
+    });
+  });
+  applyColumnWidths();
+}
+
+installColumnResizing();
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function fmt(bytes) {
@@ -2018,6 +2124,48 @@ document.getElementById("btnDoCreateTorrent").addEventListener("click", async ()
 });
 
 /* ── Init ───────────────────────────────────────────────────────── */
+async function initializeNativePanel() {
+  if (!isNativePanelWindow || !nativePanelName) return;
+
+  switch (nativePanelName) {
+    case "schedulerPanel":
+      await openSchedulerPanel();
+      break;
+    case "loginsPanel":
+      await openLoginsPanel();
+      break;
+    case "rssPanel":
+      await openRssPanel();
+      break;
+    case "batchPanel":
+      await openBatchPanel();
+      break;
+    case "grabberPanel":
+      openGrabberPanel();
+      break;
+    case "torrentFilesPanel":
+      await openTorrentFilesPanel(nativePanelTaskId);
+      break;
+    case "renameDialog":
+      openRenameDialog(nativePanelTaskId);
+      break;
+    case "propertiesDialog":
+      openPropertiesDialog(nativePanelTaskId);
+      break;
+    case "deleteConfirmDialog":
+      await showDeleteConfirm(nativePanelTaskId);
+      break;
+    case "registrationPanel":
+      openRegistrationPanel();
+      break;
+    default: {
+      const nativePanel = document.getElementById(nativePanelName);
+      if (nativePanel) openPanel(nativePanel, nativePanelTaskId);
+      break;
+    }
+  }
+}
+
 async function loadDownloads() {
   const items = await api.listDownloads();
   for (const t of items) {
@@ -2030,6 +2178,7 @@ async function init() {
   await refreshSettings();
   await buildCatTree();
   await loadDownloads();
+  await initializeNativePanel();
   drawSpeedChart(0);
   initUpdateBanner();
   initClipboardMonitor();
@@ -2085,7 +2234,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.22 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.24 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));

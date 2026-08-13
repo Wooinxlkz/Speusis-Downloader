@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-const DEFAULT_UPDATE_URL: &str = "https://api.github.com/repos/Wooinxlkz/FlexD/releases/latest";
+const DEFAULT_UPDATE_URL: &str = "https://api.github.com/repos/Wooinxlkz/Speusis-Downloader/releases/latest";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

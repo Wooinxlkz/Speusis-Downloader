@@ -442,15 +442,24 @@ svg { display:block; flex-shrink:0; }
 .table-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
 .tbl-header {
   display:grid;
-  grid-template-columns: 1fr 32px 90px 120px 78px 110px 118px;
+  grid-template-columns:var(--tbl-cols);
   background:var(--tbl-hdr); border-bottom:2px solid var(--border); flex-shrink:0;
 }
 .tbl-cell {
+  position:relative;
   padding:6px 9px; font-size:10px; font-weight:700; color:var(--muted);
   text-transform:uppercase; letter-spacing:.05em;
   border-right:1px solid var(--border); white-space:nowrap; overflow:hidden;
 }
 .tbl-cell:last-child { border-right:none; }
+.tbl-resize-handle {
+  position:absolute; top:0; right:-3px; bottom:0; width:7px;
+  cursor:col-resize; touch-action:none; z-index:2;
+}
+.tbl-resize-handle:hover { background:var(--accent); opacity:.55; }
+body.tbl-column-resizing, body.tbl-column-resizing * {
+  cursor:col-resize !important; user-select:none !important;
+}
 .download-list { flex:1; overflow-y:auto; overflow-x:hidden; }
 .download-list::-webkit-scrollbar { width:6px; }
 .download-list::-webkit-scrollbar-track { background:var(--cat-bg); }
@@ -466,7 +475,7 @@ svg { display:block; flex-shrink:0; }
 /* ── DOWNLOAD ROW ──────────────────────────────────────────────── */
 .dl-row {
   display:grid;
-  grid-template-columns: 1fr 32px 90px 120px 78px 110px 118px;
+  grid-template-columns:var(--tbl-cols);
   align-items:center; min-height:34px; border-bottom:1px solid var(--border);
   cursor:pointer; transition:background .1s;
 }
