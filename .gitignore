@@ -9,9 +9,6 @@ speusis-core/target/
 src-tauri/Cargo.lock
 speusis-core/Cargo.lock
 
-# Build output
-dist/
-
 # Environment / secrets
 .env
 .env.*

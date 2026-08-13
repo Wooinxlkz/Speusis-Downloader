@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Speusis Downloader</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-root">
+
+    <!-- APPLICATION MENU -->
+    <nav class="menubar" id="appMenuBar" aria-label="Application menu">
+      <button class="menu-item" data-menu="File" aria-haspopup="true" aria-expanded="false">File</button>
+      <button class="menu-item" data-menu="Downloads" aria-haspopup="true" aria-expanded="false">Downloads</button>
+      <button class="menu-item" data-menu="View" aria-haspopup="true" aria-expanded="false">View</button>
+      <button class="menu-item" data-menu="Tools" aria-haspopup="true" aria-expanded="false">Tools</button>
+      <button class="menu-item" data-menu="Help" aria-haspopup="true" aria-expanded="false">Help</button>
+    </nav>
+    <div id="menuDropdown" class="menu-dropdown hidden" role="menu"></div>
+
+    <!-- TOOLBAR (single row: Options / Logins / Folder on left, all actions to the right) -->
+    <div class="toolbar" id="toolbar">
+      <!-- LEFT GROUP: Options, Logins, Folder -->
+      <button class="tb-btn" id="btnOptions" title="Open settings / options">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(0 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(45 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(90 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(135 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(180 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(225 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(270 10 10)"/><rect x="9.15" y="0.8" width="1.7" height="2.6" rx="0.5" fill="#a78bfa" transform="rotate(315 10 10)"/><circle cx="10" cy="10" r="6.3" fill="none" stroke="#a78bfa" stroke-width="1.7"/><circle cx="10" cy="10" r="2.1" fill="none" stroke="#a78bfa" stroke-width="1.7"/></svg>
+        <span class="tb-label">Options</span>
+      </button>
+      <button class="tb-btn" id="btnLogins" title="Site login manager (credentials)">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="3" y="9" width="14" height="9" rx="2" fill="none" stroke="#22c55e" stroke-width="1.6"/><path d="M7 9V6a3 3 0 016 0v3" stroke="#22c55e" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="10" cy="13.5" r="1.4" fill="#22c55e"/></svg>
+        <span class="tb-label">Logins</span>
+      </button>
+      <button class="tb-btn" id="btnChooseDir" title="Change download folder">
+        <svg class="tb-icon" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" fill="none" stroke="#fbbf24" stroke-width="1.6"/></svg>
+        <span class="tb-label">Folder</span>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- ADD / TORRENT / BATCH -->
+      <button class="tb-btn" id="btnAddUrl" title="Add new download URL">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#22c55e" stroke-width="1.8"/><line x1="10" y1="6" x2="10" y2="14" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="10" x2="14" y2="10" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="tb-label">Add URL</span>
+      </button>
+      <button class="tb-btn" id="btnOpenTorrent" title="Open .torrent file from disk">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#f59e0b" stroke-width="1.7"/><path d="M10 13.5V8M7 10.5l3 3 3-3" stroke="#f59e0b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><line x1="6.5" y1="15" x2="13.5" y2="15" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="tb-label">Torrent</span>
+      </button>
+      <button class="tb-btn" id="btnBatchDownload" title="Batch download links from page">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="2.5" rx="1.2" fill="#06b6d4"/><rect x="2" y="8" width="12" height="2.5" rx="1.2" fill="#06b6d4"/><rect x="2" y="13" width="9" height="2.5" rx="1.2" fill="#06b6d4"/><polyline points="15,9 15,17 13,15" stroke="#06b6d4" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polyline points="15,17 17,15" stroke="#06b6d4" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tb-label">Batch</span>
+      </button>
+      <button class="tb-btn" id="btnGrabber" title="Web Grabber — scan a page for downloadable links">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="8" cy="8" r="5.5" fill="none" stroke="#38bdf8" stroke-width="1.6"/><line x1="12.2" y1="12.2" x2="17" y2="17" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/><polyline points="8,5.5 8,8 10,8" stroke="#38bdf8" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
+        <span class="tb-label">Grabber</span>
+      </button>
+      <button class="tb-btn" id="btnBasket" title="Download Basket — floating drop zone">
+        <svg class="tb-icon" viewBox="0 0 20 20"><path d="M4 9h12l-1 8H5L4 9z" fill="none" stroke="#fb923c" stroke-width="1.6"/><polyline points="2,9 4,4 8,4" stroke="#fb923c" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><polyline points="18,9 16,4 12,4" stroke="#fb923c" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="12" x2="10" y2="14" stroke="#fb923c" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <span class="tb-label">Basket</span>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- RESUME / PAUSE / STOP / STOP ALL -->
+      <button class="tb-btn" id="btnResumeAll" title="Resume all paused">
+        <svg class="tb-icon" viewBox="0 0 20 20"><polygon points="5,3 17,10 5,17" fill="#3b82f6"/></svg>
+        <span class="tb-label">Resume</span>
+      </button>
+      <button class="tb-btn" id="btnPauseSelected" title="Pause selected download">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="4" y="3" width="4.5" height="14" rx="1.2" fill="#fbbf24"/><rect x="11.5" y="3" width="4.5" height="14" rx="1.2" fill="#fbbf24"/></svg>
+        <span class="tb-label">Pause</span>
+      </button>
+      <button class="tb-btn" id="btnStopSelected" title="Stop selected">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#ef4444"/></svg>
+        <span class="tb-label">Stop</span>
+      </button>
+      <button class="tb-btn" id="btnStopAll" title="Stop all downloads">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="2" y="4" width="9" height="12" rx="1.5" fill="#ef4444"/><rect x="12" y="4" width="6" height="12" rx="1.5" fill="#ef4444" opacity="0.7"/></svg>
+        <span class="tb-label">Stop All</span>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- DELETE / DELETE COMPLETED -->
+      <button class="tb-btn" id="btnDelete" title="Delete selected">
+        <svg class="tb-icon" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M8 6V4h4v2" stroke="#ef4444" stroke-width="1.5" fill="none"/><path d="M5 6l1 11h8l1-11" stroke="#ef4444" stroke-width="1.5" fill="none" stroke-linejoin="round"/><line x1="8.5" y1="9" x2="8.5" y2="14" stroke="#ef4444" stroke-width="1.3"/><line x1="11.5" y1="9" x2="11.5" y2="14" stroke="#ef4444" stroke-width="1.3"/></svg>
+        <span class="tb-label">Delete</span>
+      </button>
+      <button class="tb-btn" id="btnDeleteCompleted" title="Delete all completed">
+        <svg class="tb-icon" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M8 6V4h4v2" stroke="#f97316" stroke-width="1.5" fill="none"/><path d="M5 6l1 11h8l1-11" stroke="#f97316" stroke-width="1.5" fill="none"/><polyline points="8,11 10,13 13,9" stroke="#f97316" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tb-label">Delete C…</span>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- SCHEDULER / RSS / MK TORRENT -->
+      <button class="tb-btn" id="btnScheduler" title="Scheduler — time-based download control">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#fbbf24" stroke-width="1.6"/><polyline points="10,5.5 10,10 13,12.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+        <span class="tb-label">Scheduler</span>
+      </button>
+      <button class="tb-btn" id="btnRss" title="RSS feed auto-downloader">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="5" cy="15" r="2" fill="#f97316"/><path d="M3 8.5a8.5 8.5 0 018.5 8.5" stroke="#f97316" stroke-width="1.7" fill="none" stroke-linecap="round"/><path d="M3 4a13 13 0 0113 13" stroke="#f97316" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+        <span class="tb-label">RSS</span>
+      </button>
+      <button class="tb-btn" id="btnCreateTorrent" title="Create .torrent file from local files">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#a78bfa" stroke-width="1.6"/><path d="M6.5 10.5A3.5 3.5 0 0110 7a3.5 3.5 0 013.5 3.5" stroke="#a78bfa" stroke-width="1.4" fill="none" stroke-linecap="round"/><polyline points="7.5,13 10,10 12.5,13" stroke="#a78bfa" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="tb-label">Mk Torrent</span>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- START / STOP QUEUE -->
+      <button class="tb-btn" id="btnStartQueue" title="Start queue">
+        <svg class="tb-icon" viewBox="0 0 20 20"><polygon points="3,3 11,10 3,17" fill="#22c55e"/><polygon points="10,3 18,10 10,17" fill="#22c55e" opacity="0.65"/></svg>
+        <span class="tb-label">Start Qu…</span>
+      </button>
+      <button class="tb-btn" id="btnStopQueue" title="Stop queue">
+        <svg class="tb-icon" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="#f97316"/><rect x="12" y="4" width="4" height="12" rx="1" fill="#f97316"/></svg>
+        <span class="tb-label">Stop Qu…</span>
+      </button>
+      <div style="flex:1;"></div>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="btnRegister" title="Register Speusis — Enter license key">
+        <svg class="tb-icon" viewBox="0 0 20 20"><path d="M10 2l2.4 5H18l-4.3 3.2 1.6 5.2L10 12.3l-5.3 3.1 1.6-5.2L2 7h5.6z" fill="#f59e0b"/></svg>
+        <span class="tb-label" id="tbRegLabel">Register</span>
+      </button>
+      <button class="tb-btn" id="btnHelp" title="Help &amp; Support">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#4ade80" stroke-width="1.6"/><path d="M7.8 7.8a2.2 2.2 0 1 1 3.3 1.9c-.7.4-1.1.9-1.1 1.8" stroke="#4ade80" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="10" cy="14" r="0.9" fill="#4ade80"/></svg>
+        <span class="tb-label">Help</span>
+      </button>
+      <button class="tb-btn" id="btnAbout" title="About Speusis">
+        <svg class="tb-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#60a5fa" stroke-width="1.6"/><line x1="10" y1="9" x2="10" y2="14" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round"/><circle cx="10" cy="6.5" r="1.3" fill="#60a5fa"/></svg>
+        <span class="tb-label">About</span>
+      </button>
+    </div>
+
+    <!-- Update notification banner -->
+    <div id="updateBanner" role="alert">
+      <div class="ub-icon">
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="8.5" stroke="#fff" stroke-width="1.8"/>
+          <line x1="10" y1="6" x2="10" y2="11" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="10" cy="14" r="1.2" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="ub-msg">
+            <span>Speusis <strong id="ubVersion"></strong> is available — you're on <span id="ubCurrentVersion">v0.5.21</span>.</span>
+        <span class="ub-notes" id="ubNotes"></span>
+      </div>
+      <button class="ub-btn" id="ubDownloadBtn">Download Update</button>
+      <button class="ub-btn" id="ubQuickPatchBtn" style="background:#059669;display:none;margin-left:4px;">Quick Patch (~3MB)</button>
+      <button class="ub-dismiss" id="ubDismissBtn">Remind me later</button>
+    </div>
+
+    <!-- Clipboard URL banner -->
+    <div id="clipboardBanner" class="update-banner" style="background:rgba(99,102,241,.12);border-color:#6366f1;display:none;">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+        <svg width="16" height="16" viewBox="0 0 20 20" style="flex-shrink:0"><rect x="5" y="2" width="10" height="3" rx="1.5" fill="#6366f1"/><rect x="3" y="4" width="14" height="14" rx="2" fill="none" stroke="#6366f1" stroke-width="1.8"/><polyline points="7,10 9,12 13,8" stroke="#6366f1" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="font-size:12px;color:#a5b4fc;font-weight:600;white-space:nowrap;">Clipboard URL detected:</span>
+        <span id="cbUrl" style="font-size:11px;color:#c7d2fe;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;"></span>
+      </div>
+      <button class="ub-btn" id="cbAddBtn" style="background:#6366f1;">Add Download</button>
+      <button class="ub-dismiss" id="cbDismissBtn">Ignore</button>
+    </div>
+
+    <!-- ─────────────── OVERLAY PANELS ─────────────── -->
+
+    <!-- Add URL Panel -->
+    <div id="addUrlPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="10" y1="6" x2="10" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Add New Download
+        </div>
+        <form id="downloadForm">
+          <div class="pf-row"><label>URL</label><input id="urlInput" type="text" placeholder="https://…  or  magnet:?xt=urn:btih:…" required autocomplete="off" /></div>
+          <div class="pf-row"><label>Save As</label><input id="filenameInput" type="text" placeholder="Optional filename" /></div>
+          <div class="pf-row">
+            <label>Label</label>
+            <input id="labelInput" type="text" placeholder="Optional label (e.g. Work, Movies)" />
+          </div>
+          <div class="pf-buttons">
+            <button type="button" id="btnLaterDownload" class="btn-later">Download Later</button>
+            <button type="submit" class="btn-start">Start Download</button>
+            <button type="button" id="btnCancelAdd" class="btn-cancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box settings-box">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="2.5" rx="1.2" fill="currentColor"/><rect x="2" y="9" width="16" height="2.5" rx="1.2" fill="currentColor"/><rect x="2" y="14" width="16" height="2.5" rx="1.2" fill="currentColor"/></svg>
+          Options — <span id="settingsVersionText">Speusis</span>
+        </div>
+        <div class="settings-tabs" role="tablist" aria-label="Options categories">
+          <button class="settings-tab active" id="settingsTabGeneral" data-settings-tab="general" role="tab" aria-selected="true">General</button>
+          <button class="settings-tab" data-settings-tab="downloads" role="tab" aria-selected="false">Downloads</button>
+          <button class="settings-tab" data-settings-tab="connection" role="tab" aria-selected="false">Connection</button>
+          <button class="settings-tab" data-settings-tab="security" role="tab" aria-selected="false">Security</button>
+          <button class="settings-tab" data-settings-tab="advanced" role="tab" aria-selected="false">Advanced</button>
+        </div>
+        <div class="settings-content">
+          <section class="settings-tab-panel active" data-settings-panel="general" role="tabpanel" aria-labelledby="settingsTabGeneral">
+            <div class="settings-section-heading">Appearance</div>
+            <div class="pf-row"><label>Theme</label>
+              <select id="themeMode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+            </div>
+            <div class="pf-row"><label>Accent</label>
+              <select id="accentColor">
+                <option value="blue">Blue</option><option value="green">Green</option>
+                <option value="purple">Purple</option><option value="orange">Orange</option>
+                <option value="red">Red</option><option value="teal">Teal</option><option value="slate">Slate</option>
+              </select>
+            </div>
+            <div class="settings-section-heading">Startup &amp; window</div>
+            <div class="pf-row">
+              <label>Auto-start</label>
+              <label class="toggle-wrap"><input type="checkbox" id="autoStartWithSystem" /><span class="toggle-track"></span> Start Speusis with Windows</label>
+            </div>
+            <div class="pf-row">
+              <label>Minimize to tray</label>
+              <label class="toggle-wrap"><input type="checkbox" id="minimizeToTray" /><span class="toggle-track"></span> Hide to system tray on close/minimize</label>
+            </div>
+          </section>
+          <section class="settings-tab-panel" data-settings-panel="downloads" role="tabpanel">
+            <div class="settings-section-heading">File handling</div>
+            <div class="pf-row">
+              <label>File routing</label>
+              <label class="toggle-wrap"><input type="checkbox" id="fileTypeRouting" /><span class="toggle-track"></span> Sort downloads into subfolders by type</label>
+            </div>
+            <div class="pf-row">
+              <label>Max retries</label>
+              <input id="maxRetries" type="number" min="0" max="20" style="width:80px;" />
+            </div>
+            <div class="settings-note">Completed files stay in their original location. Routing only affects new downloads.</div>
+            <div id="settingsDetails" class="settings-details"></div>
+          </section>
+          <section class="settings-tab-panel" data-settings-panel="connection" role="tabpanel">
+            <div class="settings-section-heading">Network protection</div>
+            <div class="pf-row">
+              <label>IP Blocklist URL</label>
+              <input id="ipBlocklistUrl" type="text" placeholder="http://… or local file path (optional)" />
+            </div>
+            <div class="settings-note">Speusis reloads the blocklist after you change this address. Leave it empty to disable the list.</div>
+            <div class="settings-details settings-details-connection"></div>
+          </section>
+          <section class="settings-tab-panel" data-settings-panel="security" role="tabpanel">
+            <div class="settings-section-heading">Completed file scanning</div>
+            <div class="pf-row">
+              <label>Windows Defender</label>
+              <label class="toggle-wrap"><input type="checkbox" id="scanCompletedFiles" /><span class="toggle-track"></span> Scan completed files automatically</label>
+            </div>
+            <div class="settings-note">Runs after a file finishes downloading. You can disable it anytime.</div>
+            <div class="security-callout">
+              <strong>Safer downloads, fewer surprises</strong>
+              <span>Speusis hands completed files to Windows Defender and reports the result beside the download.</span>
+            </div>
+          </section>
+          <section class="settings-tab-panel" data-settings-panel="advanced" role="tabpanel">
+            <div class="settings-section-heading">Engine snapshot</div>
+            <div class="settings-note">These values are read-only here because they are controlled by the active download engine.</div>
+            <div class="settings-details settings-details-advanced"></div>
+          </section>
+        </div>
+        <div class="pf-buttons settings-actions"><span class="settings-save-hint">Changes save automatically</span><button id="btnCloseSettings" class="btn-cancel">Close</button></div>
+      </div>
+    </div>
+
+    <!-- Scheduler Panel -->
+    <div id="schedulerPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:500px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="10,5.5 10,10 13,12.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+          Scheduler &amp; Bandwidth Control
+        </div>
+        <div class="sched-section">
+          <div class="sched-section-title">Time-Based Queue (Auto Pause/Resume)</div>
+          <div class="pf-row">
+            <label>Enabled</label>
+            <label class="toggle-wrap"><input type="checkbox" id="schedEnabled" /><span class="toggle-track"></span> Enable schedule</label>
+          </div>
+          <div class="pf-row">
+            <label>Start time</label>
+            <div class="time-row">
+              <select id="schedStartH" class="time-sel"></select>
+              <span class="time-colon">:</span>
+              <select id="schedStartM" class="time-sel"></select>
+            </div>
+          </div>
+          <div class="pf-row">
+            <label>Stop time</label>
+            <div class="time-row">
+              <select id="schedStopH" class="time-sel"></select>
+              <span class="time-colon">:</span>
+              <select id="schedStopM" class="time-sel"></select>
+            </div>
+          </div>
+        </div>
+        <div class="sched-section">
+          <div class="sched-section-title">Peak Hours Bandwidth Limiting</div>
+          <div class="pf-row">
+            <label>Enabled</label>
+            <label class="toggle-wrap"><input type="checkbox" id="peakEnabled" /><span class="toggle-track"></span> Enable peak hours</label>
+          </div>
+          <div class="pf-row">
+            <label>Peak hours</label>
+            <div class="time-row">
+              <select id="peakStartH" class="time-sel"></select>
+              <span class="time-colon">to</span>
+              <select id="peakStopH" class="time-sel"></select>
+            </div>
+          </div>
+          <div class="pf-row">
+            <label>DL limit</label>
+            <div class="limit-row">
+              <input id="peakDlLimit" type="number" min="0" step="128" placeholder="0 = unlimited" style="width:120px;" />
+              <span class="limit-unit">KB/s</span>
+            </div>
+          </div>
+          <div class="pf-row">
+            <label>UL limit</label>
+            <div class="limit-row">
+              <input id="peakUlLimit" type="number" min="0" step="128" placeholder="0 = unlimited" style="width:120px;" />
+              <span class="limit-unit">KB/s</span>
+            </div>
+          </div>
+        </div>
+        <div class="pf-buttons">
+          <button id="btnSaveScheduler" class="btn-start">Save</button>
+          <button id="btnCloseScheduler" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Site Logins Panel -->
+    <div id="loginsPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:520px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><rect x="3" y="9" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          Site Login Manager
+        </div>
+        <div id="credentialList" class="cred-list"></div>
+        <div class="cred-add-form">
+          <div class="cred-form-title">Add / Update Credential</div>
+          <div class="pf-row"><label>Domain</label><input id="credDomain" type="text" placeholder="example.com" /></div>
+          <div class="pf-row"><label>Username</label><input id="credUser" type="text" placeholder="username" /></div>
+          <div class="pf-row"><label>Password</label><input id="credPass" type="password" placeholder="password" /></div>
+        </div>
+        <div class="pf-buttons">
+          <button id="btnAddCred" class="btn-start">Add Credential</button>
+          <button id="btnCloseLogins" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSS Feeds Panel -->
+    <div id="rssPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:580px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="5" cy="15" r="2" fill="currentColor"/><path d="M3 8.5a8.5 8.5 0 018.5 8.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M3 4a13 13 0 0113 13" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          RSS Feed Manager
+        </div>
+        <div id="rssFeedList" class="rss-list"></div>
+        <div class="rss-add-form">
+          <div class="cred-form-title">Add RSS Feed</div>
+          <div class="pf-row"><label>Name</label><input id="rssFeedName" type="text" placeholder="Feed name" /></div>
+          <div class="pf-row"><label>URL</label><input id="rssFeedUrl" type="text" placeholder="https://…/feed.xml" /></div>
+          <div class="pf-row"><label>Filter</label><input id="rssFeedFilter" type="text" placeholder="Optional regex filter (e.g. \.mkv$)" /></div>
+          <div class="pf-row">
+            <label>Interval</label>
+            <select id="rssFeedInterval">
+              <option value="300">5 min</option><option value="900">15 min</option>
+              <option value="1800" selected>30 min</option><option value="3600">1 hour</option>
+              <option value="21600">6 hours</option><option value="86400">24 hours</option>
+            </select>
+          </div>
+          <div class="pf-row">
+            <label>Auto DL</label>
+            <label class="toggle-wrap"><input type="checkbox" id="rssFeedAuto" checked /><span class="toggle-track"></span> Auto-download matches</label>
+          </div>
+        </div>
+        <div class="pf-buttons">
+          <button id="btnAddRss" class="btn-start">Add Feed</button>
+          <button id="btnCloseRss" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch Download Panel -->
+    <div id="batchPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:600px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="2.5" rx="1.2" fill="currentColor"/><rect x="2" y="8" width="12" height="2.5" rx="1.2" fill="currentColor"/><rect x="2" y="13" width="9" height="2.5" rx="1.2" fill="currentColor"/></svg>
+          Batch Download from Page
+        </div>
+        <div class="batch-controls">
+          <button id="btnScanLinks" class="btn-start">Scan Active Tab for Links</button>
+          <input id="batchFilter" type="text" placeholder="Filter by extension or name (e.g. .mp4)" style="flex:1;" />
+          <button id="btnSelectAll" class="btn-later">Select All</button>
+          <button id="btnSelectNone" class="btn-cancel" style="padding:5px 10px;">None</button>
+        </div>
+        <div id="batchLinkList" class="batch-list">
+          <div class="batch-empty">Click "Scan Active Tab" to detect downloadable links on the current browser page.</div>
+        </div>
+        <div class="pf-buttons">
+          <button id="btnDownloadSelected" class="btn-start">Download Selected</button>
+          <button id="btnCloseBatch" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Torrent Panel -->
+    <div id="createTorrentPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:500px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 10.5A3.5 3.5 0 0110 7a3.5 3.5 0 013.5 3.5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+          Create Torrent File
+        </div>
+        <div class="pf-row">
+          <label>Source</label>
+          <div class="path-row">
+            <input id="torrentSourcePath" type="text" placeholder="Choose file or folder…" readonly />
+            <button id="btnChooseSource" class="btn-later" style="padding:5px 10px;white-space:nowrap;">Browse…</button>
+          </div>
+        </div>
+        <div class="pf-row"><label>Name</label><input id="torrentName" type="text" placeholder="Torrent name (auto-detected)" /></div>
+        <div class="pf-row"><label>Tracker</label><input id="torrentTracker" type="text" placeholder="Custom tracker URL (optional)" /></div>
+        <div id="torrentCreateStatus" class="torrent-status"></div>
+        <div class="pf-buttons">
+          <button id="btnDoCreateTorrent" class="btn-start">Create .torrent</button>
+          <button id="btnCloseCreateTorrent" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Panel -->
+    <div id="aboutPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="max-width:400px;text-align:center;">
+        <div class="panel-title">About Speusis</div>
+        <div style="padding:20px 16px;color:var(--muted);font-size:12px;line-height:1.7;">
+          <div style="font-size:32px;font-weight:900;color:var(--accent);margin-bottom:8px;">Speusis Downloader</div>
+          <div id="aboutVersionText" style="color:var(--text);font-size:14px;font-weight:600;margin-bottom:4px;">Version — Windows</div>
+          <div>Multi-segment, resumable download manager.</div>
+          <div style="margin-top:10px;color:var(--accent);font-size:12px;font-weight:600;letter-spacing:0.04em;">Developed by Nulltrace</div>
+          <div style="margin-top:8px;line-height:1.9;">
+            Multi-segment HTTP &nbsp;·&nbsp; BitTorrent + DHT/PEX &nbsp;·&nbsp; FTP/FTPS<br>
+            Per-file Priority &nbsp;·&nbsp; Sequential Torrent &nbsp;·&nbsp; Seeding Ratio<br>
+            IP Blocklist &nbsp;·&nbsp; Web Grabber &nbsp;·&nbsp; Download Basket<br>
+            Auto-start &nbsp;·&nbsp; System Tray &nbsp;·&nbsp; File-type Routing<br>
+            RSS Auto-Download &nbsp;·&nbsp; Scheduler &nbsp;·&nbsp; Speed Graph<br>
+            Batch Download &nbsp;·&nbsp; Create .torrent &nbsp;·&nbsp; Site Logins<br>
+            Windows Defender Scan &nbsp;·&nbsp; Clipboard URL Monitor &nbsp;·&nbsp; IDM-style UI
+          </div>
+        </div>
+        <div id="updateCheckStatus" style="font-size:11px;color:var(--muted);min-height:16px;margin-bottom:4px;"></div>
+        <div class="pf-buttons">
+          <button id="btnCheckUpdate" class="btn-later">Check for Updates</button>
+          <button id="btnCloseAbout" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Panel -->
+    <div id="helpPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="max-width:400px;text-align:center;">
+        <div class="panel-title">Help &amp; Support</div>
+        <div style="padding:20px 16px;color:var(--muted);font-size:12px;line-height:1.9;text-align:left;">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>Website</span>
+            <a href="https://speusis.app" target="_blank" style="color:var(--accent);text-decoration:none;">speusis.app</a>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>Support Email</span>
+            <a href="mailto:karimsc01t@gmail.com" style="color:var(--accent);text-decoration:none;">karimsc01t@gmail.com</a>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>Developer</span>
+            <span style="color:var(--text);">Nulltrace</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+            <span>License Type</span>
+            <span id="helpLicenseType" style="color:var(--text);">Unregistered</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;">
+            <span>Version</span>
+            <span id="helpVersionText" style="color:var(--text);">—</span>
+          </div>
+          <div style="margin-top:14px;color:var(--muted);font-size:11.5px;line-height:1.6;">
+            For bugs, feature requests, or license issues, reach out by email above.
+            Response time is typically 1-2 business days.
+          </div>
+        </div>
+        <div class="pf-buttons">
+          <button id="btnCloseHelp" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Web Grabber Panel -->
+    <div id="grabberPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:620px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12.2" y1="12.2" x2="17" y2="17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          Web Grabber
+        </div>
+        <div style="padding:8px 16px 4px;font-size:11px;color:var(--muted);">Enter a page URL to scan for all downloadable links (videos, audio, files, documents).</div>
+        <div class="batch-controls">
+          <input id="grabberUrl" type="text" placeholder="https://example.com/page" style="flex:1;" />
+          <button id="btnGrabberScan" class="btn-start">Scan Page</button>
+        </div>
+        <div style="padding:0 16px 4px;display:flex;align-items:center;gap:10px;">
+          <input id="grabberFilter" type="text" placeholder="Filter by extension (e.g. mp4) or keyword" style="flex:1;" />
+          <button id="btnGrabberSelectAll" class="btn-later" style="padding:5px 10px;">All</button>
+          <button id="btnGrabberSelectNone" class="btn-cancel" style="padding:5px 10px;">None</button>
+        </div>
+        <div id="grabberLinkList" class="batch-list">
+          <div class="batch-empty">Enter a URL above and click "Scan Page" to find downloadable links.</div>
+        </div>
+        <div id="grabberStatus" style="padding:4px 16px;font-size:11px;min-height:18px;color:var(--muted);"></div>
+        <div class="pf-buttons">
+          <button id="btnGrabberDownload" class="btn-start">Download Selected</button>
+          <button id="btnCloseGrabber" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Torrent Files Dialog -->
+    <div id="torrentFilesPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:560px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10h6M10 7v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          Torrent File Selection
+        </div>
+        <div style="padding:6px 16px 4px;font-size:11px;color:var(--muted);">Check or uncheck files to include/exclude them from this torrent.</div>
+        <div id="torrentFilesList" class="batch-list" style="max-height:280px;"></div>
+        <div class="pf-buttons">
+          <button id="btnCloseTorrentFiles" class="btn-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPEED GRAPH -->
+    <div class="speed-graph-bar" id="speedGraphBar">
+      <canvas id="speedChart" height="40"></canvas>
+      <div class="sg-label" id="sgLabel">0 B/s</div>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main-area">
+
+      <!-- CATEGORY SIDEBAR -->
+      <div class="cat-panel" id="catPanel">
+        <div class="cat-header">
+          <span>Categories</span>
+          <button class="icon-btn" id="btnToggleCat" title="Close panel">
+            <svg width="10" height="10" viewBox="0 0 14 14"><line x1="2" y1="2" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="2" x2="2" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="cat-tree" id="catTree">
+          <!-- populated by JS -->
+        </div>
+        <div class="cat-stats">
+          <div class="cs-row"><span>Total</span><strong id="statTotal">0</strong></div>
+          <div class="cs-row"><span>Active</span><strong id="statActive">0</strong></div>
+          <div class="cs-row"><span>Done</span><strong id="statCompleted">0</strong></div>
+        </div>
+        <div class="listener-note">Listener: 127.0.0.1:9999</div>
+      </div>
+
+      <!-- DOWNLOAD TABLE -->
+      <div class="table-panel">
+        <div class="tbl-header">
+          <div class="tbl-cell tbl-file">File Name</div>
+          <div class="tbl-cell tbl-q">Q</div>
+          <div class="tbl-cell tbl-size">Size</div>
+          <div class="tbl-cell tbl-status">Status</div>
+          <div class="tbl-cell tbl-time">Time left</div>
+          <div class="tbl-cell tbl-rate">Transfer rate</div>
+          <div class="tbl-cell tbl-actions">Actions</div>
+        </div>
+        <div id="downloadList" class="download-list">
+          <div class="empty-state" id="emptyState">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+              <circle cx="26" cy="26" r="24" stroke="var(--border)" stroke-width="2"/>
+              <path d="M26 14v14M18 22l8 8 8-8" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="16" y1="36" x2="36" y2="36" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div class="empty-text">No downloads yet</div>
+            <div class="empty-sub">Click "Add URL" in the toolbar or let the extension capture links</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CONTEXT MENU (IDM-style) -->
+    <div id="contextMenu" class="ctx-menu hidden">
+      <div class="ctx-item" data-action="open">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="2" y="5" width="16" height="12" rx="1.5" fill="none" stroke="#60a5fa" stroke-width="1.5"/><path d="M2 8h16" stroke="#60a5fa" stroke-width="1.3"/><polyline points="6,5 6,2 14,2 14,5" stroke="#60a5fa" stroke-width="1.3" fill="none"/></svg>
+        Open
+      </div>
+      <div class="ctx-item" data-action="openwith">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="2" y="5" width="12" height="12" rx="1.5" fill="none" stroke="#60a5fa" stroke-width="1.5"/><path d="M14 7h3l1 1v7h-4" stroke="#60a5fa" stroke-width="1.3" fill="none"/></svg>
+        Open with…
+      </div>
+      <div class="ctx-item" data-action="openfolder">
+        <svg width="12" height="12" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" fill="none" stroke="#fbbf24" stroke-width="1.5"/></svg>
+        Open folder
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="rename">
+        <svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 14l2-2 8-8 2 2-8 8-2 2H4v-2z" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Move/Rename <span class="ctx-shortcut">Ctrl+M</span>
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="redownload">
+        <svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 10a6 6 0 106-6" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round"/><polyline points="4,5 4,10 9,10" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Redownload
+      </div>
+      <div class="ctx-item ctx-grayed" data-action="resume" id="ctxResume">
+        <svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#3b82f6"/></svg>
+        Resume Download
+      </div>
+      <div class="ctx-item ctx-grayed" data-action="pause" id="ctxPause">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="3" y="3" width="4" height="14" rx="1" fill="#fbbf24"/><rect x="11" y="3" width="4" height="14" rx="1" fill="#fbbf24"/></svg>
+        Pause Download
+      </div>
+      <div class="ctx-item ctx-grayed" data-action="stop" id="ctxStop">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#ef4444"/></svg>
+        Stop Download
+      </div>
+      <div class="ctx-item ctx-grayed" data-action="refreshurl">
+        <svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 10a6 6 0 106-6" stroke="#94a3b8" stroke-width="1.7" fill="none" stroke-linecap="round"/><polyline points="4,5 4,10 9,10" stroke="#94a3b8" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Refresh download address
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item ctx-danger" data-action="delete">
+        <svg width="12" height="12" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 6V4h4v2M5 6l1 11h8l1-11" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+        Delete
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item ctx-has-sub" data-action="addqueue">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="2" y="8" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="2" y="13" width="9" height="2.5" rx="1.2" fill="#94a3b8"/></svg>
+        Add to queue
+        <span class="ctx-arrow">&#9658;</span>
+      </div>
+      <div class="ctx-item ctx-grayed" data-action="removequeue">
+        <svg width="12" height="12" viewBox="0 0 20 20"><line x1="4" y1="4" x2="16" y2="16" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/><line x1="16" y1="4" x2="4" y2="16" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Delete from queue
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item ctx-has-sub" data-action="ondblclick">
+        <svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#a78bfa"/><polygon points="10,3 17,10 10,17" fill="#a78bfa" opacity="0.5"/></svg>
+        On Double click
+        <span class="ctx-arrow">&#9658;</span>
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item" data-action="copyurl">
+        <svg width="12" height="12" viewBox="0 0 20 20"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="none" stroke="#94a3b8" stroke-width="1.5"/><path d="M3 13V5a2 2 0 012-2h8" stroke="#94a3b8" stroke-width="1.5" fill="none"/></svg>
+        Copy URL
+      </div>
+      <div class="ctx-item" data-action="properties">
+        <svg width="12" height="12" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="#94a3b8" stroke-width="1.5"/><line x1="10" y1="9" x2="10" y2="14" stroke="#94a3b8" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="6.5" r="1" fill="#94a3b8"/></svg>
+        Properties
+      </div>
+      <div class="ctx-item" data-action="torrent-files" id="ctxTorrentFiles">
+        <svg width="12" height="12" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="#a78bfa" stroke-width="1.5"/><path d="M7 10h6M10 7v6" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Torrent Files…
+      </div>
+    </div>
+
+    <!-- DELETE CONFIRMATION DIALOG (IDM-style) -->
+    <div id="deleteConfirmDialog" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box delete-confirm-box">
+        <div class="delete-confirm-title panel-drag-handle">
+          <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#f59e0b" stroke-width="1.8"/><line x1="10" y1="6" x2="10" y2="11" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1.2" fill="#f59e0b"/></svg>
+          Confirm deletion of downloads
+        </div>
+        <div class="delete-confirm-msg">Are you sure you want to delete selected downloads from Speusis list of downloads?</div>
+        <div class="delete-confirm-checks">
+          <label class="delete-check-row">
+            <input type="checkbox" id="chkDeleteFromDisk" />
+            <span>Delete completely downloaded files from your hard disk as well. <strong>Be careful!</strong></span>
+          </label>
+          <label class="delete-check-row">
+            <input type="checkbox" id="chkDontShowDeleteAgain" />
+            <span>Don't show this dialog again</span>
+          </label>
+        </div>
+        <div class="delete-confirm-btns">
+          <button id="btnDeleteConfirmYes" class="btn-start" style="min-width:80px;">Yes</button>
+          <button id="btnDeleteConfirmNo" class="btn-cancel" style="min-width:80px;">No</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTRATION PANEL -->
+    <div id="registrationPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box" style="width:460px;">
+        <div class="panel-title panel-drag-handle">
+          <svg width="14" height="14" viewBox="0 0 20 20"><path d="M5 8V6a5 5 0 0110 0v2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><rect x="3" y="8" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+          Registration
+        </div>
+
+        <!-- SUCCESS / ALREADY-REGISTERED VIEW -->
+        <div id="regSuccessView" class="hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:16px 16px 0;">
+            <img src="./speusis-icon.png" width="38" height="38" style="border-radius:8px;flex-shrink:0;" alt="Speusis"/>
+            <div>
+              <div id="regSuccessVersionText" style="font-weight:700;font-size:13px;color:var(--text);">Speusis</div>
+              <div style="font-size:11px;color:#4ade80;font-weight:600;">✓ Activated</div>
+            </div>
+          </div>
+          <div id="regLicenseCard" style="margin:14px 16px 16px;padding:14px;border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.07);border-radius:10px;">
+            <div style="color:#4ade80;font-size:12px;font-weight:700;margin-bottom:10px;letter-spacing:.03em;">LICENSE DETAILS</div>
+            <div style="display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font-size:12px;">
+              <span style="color:var(--muted);">Name</span><span id="regCardName" style="color:var(--text);font-weight:600;"></span>
+              <span style="color:var(--muted);">Email</span><span id="regCardEmail" style="color:var(--text);"></span>
+              <span style="color:var(--muted);">License</span><span id="regCardKey" style="color:var(--text);font-family:monospace;font-size:11px;"></span>
+              <span style="color:var(--muted);">Plan</span><span id="regCardPlan" style="color:#4ade80;font-weight:700;"></span>
+            </div>
+          </div>
+          <div class="pf-buttons">
+            <button id="btnRegSwitchLicense" class="btn-cancel">Use a Different License</button>
+            <button id="btnRegSuccessClose" class="btn-start">OK</button>
+          </div>
+        </div>
+
+        <!-- FORM VIEW -->
+        <div id="regFormView">
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 0;">
+            <img src="./speusis-icon.png" width="38" height="38" style="border-radius:8px;flex-shrink:0;" alt="Speusis"/>
+            <div>
+              <div id="regFormVersionText" style="font-weight:700;font-size:13px;color:var(--text);">Speusis</div>
+              <div style="font-size:11px;color:var(--muted);">Enter your license details to activate</div>
+            </div>
+          </div>
+          <div style="margin:12px 16px 0;padding:10px;border:1px solid var(--border);background:var(--panel2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.55;">
+            <div style="color:var(--text);font-weight:700;margin-bottom:4px;">Sample licenses</div>
+            <div>Full Name: <strong style="color:var(--text);">Speusis Sample User</strong></div>
+            <div>Email: <strong style="color:var(--text);">sample@speusis.local</strong></div>
+            <div style="margin-top:8px;display:flex;gap:8px;">
+              <button id="btnRegUseLifetime" class="btn-cancel" style="padding:6px 9px;font-size:11px;">Use Lifetime License</button>
+              <button id="btnRegUseMonthly" class="btn-cancel" style="padding:6px 9px;font-size:11px;">Use Monthly License</button>
+            </div>
+          </div>
+          <div class="pf-row" style="margin-top:10px;"><label>Full Name</label><input id="regNameInput" type="text" placeholder="Your full name" autocomplete="name"/></div>
+          <div class="pf-row"><label>Email</label><input id="regEmailInput" type="email" placeholder="your@email.com" autocomplete="email"/></div>
+          <div class="pf-row"><label>License Key</label><input id="regKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing:0.05em;font-family:monospace,sans-serif;"/></div>
+          <div style="padding:8px 16px 0;font-size:11px;color:var(--muted);">Don't have a license? Purchase Speusis to unlock all features.</div>
+          <div class="pf-buttons">
+            <button id="btnRegBack" class="btn-cancel hidden">← Back</button>
+            <button id="btnRegCancel" class="btn-cancel">Cancel</button>
+            <button id="btnRegActivate" class="btn-start">Activate</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RENAME DIALOG -->
+    <div id="renameDialog" class="overlay-panel hidden" role="dialog">
+      <div class="panel-box" style="width:420px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><path d="M4 14l2-2 8-8 2 2-8 8-2 2H4v-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Move / Rename
+        </div>
+        <div class="pf-row"><label>New name</label><input id="renameInput" type="text" placeholder="filename…" /></div>
+        <div class="pf-buttons">
+          <button id="btnRenameOk" class="btn-start">Rename</button>
+          <button id="btnRenameCancel" class="btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROPERTIES DIALOG -->
+    <div id="propertiesDialog" class="overlay-panel hidden" role="dialog">
+      <div class="panel-box" style="width:460px;">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="10" y1="9" x2="10" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="6.5" r="1.2" fill="currentColor"/></svg>
+          Download Properties
+        </div>
+        <div id="propertiesContent" class="settings-details" style="max-height:300px;"></div>
+        <div class="pf-buttons"><button id="btnCloseProperties" class="btn-cancel">Close</button></div>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <span id="statusMsg">Ready</span>
+      <span class="sb-sep"></span>
+      <span id="statSpeed">0 B/s</span>
+      <span class="sb-sep"></span>
+      <span id="statCount">0 downloads</span>
+      <span class="sb-sep"></span>
+      <span id="regStatusBadge" style="color:var(--accent);font-weight:600;">Speusis</span>
+    </div>
+
+  </div>
+  <script src="./downloadManagerBridge.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
