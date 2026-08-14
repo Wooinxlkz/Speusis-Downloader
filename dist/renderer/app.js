@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.29 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.30 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.29";
+let _appVersion = "0.5.30";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -379,21 +379,21 @@ function fileTypeBadge(name) {
   const ext = (name || "").split(".").pop()?.toLowerCase() || "?";
   const color = EXT_COLORS[ext] || "#6366f1";
   const label = ext.slice(0, 4).toUpperCase();
-  return `<svg width="30" height="22" viewBox="0 0 30 22" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-    <rect width="30" height="22" rx="3" fill="${color}" opacity="0.82"/>
-    <text x="15" y="15.5" font-family="monospace,sans-serif" font-size="8.5" font-weight="700"
-          fill="white" text-anchor="middle">${label}</text>
+  return `<svg width="28" height="20" viewBox="0 0 28 20" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+    <rect x="0.5" y="0.5" width="27" height="19" rx="2" fill="${color}" fill-opacity="0.16" stroke="${color}" stroke-opacity="0.32"/>
+    <text x="14" y="14" font-family="monospace" font-size="7" font-weight="700"
+          fill="${color}" text-anchor="middle" letter-spacing="0.3">${label}</text>
   </svg>`;
 }
 
 /* ── Row SVG action buttons ─────────────────────────────────────── */
 const BTN_SVG = {
-  play:    `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#3b82f6"/></svg>`,
-  pause:   `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="#fbbf24"/><rect x="12" y="4" width="4" height="12" rx="1" fill="#fbbf24"/></svg>`,
-  stop:    `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#ef4444"/></svg>`,
-  retry:   `<svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 10a6 6 0 106-6" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round"/><polyline points="4,5 4,10 9,10" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  del:     `<svg width="12" height="12" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="#ef4444" stroke-width="1.8" fill="none"/><path d="M8 6V4h4v2M5 6l1 11h8l1-11" stroke="#ef4444" stroke-width="1.5" fill="none"/></svg>`,
-  preview: `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#ec4899"/></svg>`,
+  play:    `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#6ee7b7"/></svg>`,
+  pause:   `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="#fcd34d"/><rect x="12" y="4" width="4" height="12" rx="1" fill="#fcd34d"/></svg>`,
+  stop:    `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#f87171"/></svg>`,
+  retry:   `<svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 10a6 6 0 106-6" stroke="#60a5fa" stroke-width="2" fill="none" stroke-linecap="round"/><polyline points="4,5 4,10 9,10" stroke="#60a5fa" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  del:     `<svg width="12" height="12" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="#f87171" stroke-width="1.8" fill="none"/><path d="M8 6V4h4v2M5 6l1 11h8l1-11" stroke="#f87171" stroke-width="1.5" fill="none"/></svg>`,
+  preview: `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#e8e8e8"/></svg>`,
 };
 
 const VIDEO_EXT = /\.(mp4|mkv|avi|mov|wmv|flv|webm|ts|m3u8|mpd|m4v)$/i;
@@ -452,16 +452,16 @@ function statusBadge(task) {
 
 /* ── Category config ────────────────────────────────────────────── */
 const CAT_SVGS = {
-  all:        `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#3b82f6"/></svg>`,
-  compressed: `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="#f59e0b" stroke-width="1.3"/><line x1="5" y1="1" x2="5" y2="13" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="4" x2="9" y2="4" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="7" x2="9" y2="7" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="10" x2="9" y2="10" stroke="#f59e0b" stroke-width="1.2"/></svg>`,
-  documents:  `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 3v7H2V2z" fill="none" stroke="#3b82f6" stroke-width="1.3"/><path d="M9 2v3h3" stroke="#3b82f6" stroke-width="1.2" fill="none"/><line x1="4" y1="7" x2="10" y2="7" stroke="#3b82f6" stroke-width="1.1"/><line x1="4" y1="9.5" x2="10" y2="9.5" stroke="#3b82f6" stroke-width="1.1"/></svg>`,
+  all:        `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#60a5fa"/></svg>`,
+  compressed: `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="#fb923c" stroke-width="1.3"/><line x1="5" y1="1" x2="5" y2="13" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="4" x2="9" y2="4" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="7" x2="9" y2="7" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="10" x2="9" y2="10" stroke="#fb923c" stroke-width="1.2"/></svg>`,
+  documents:  `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 3v7H2V2z" fill="none" stroke="#60a5fa" stroke-width="1.3"/><path d="M9 2v3h3" stroke="#60a5fa" stroke-width="1.2" fill="none"/><line x1="4" y1="7" x2="10" y2="7" stroke="#60a5fa" stroke-width="1.1"/><line x1="4" y1="9.5" x2="10" y2="9.5" stroke="#60a5fa" stroke-width="1.1"/></svg>`,
   music:      `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M5 11V3l7-2v8" stroke="#a78bfa" stroke-width="1.3" fill="none" stroke-linecap="round"/><circle cx="4" cy="11" r="2" fill="#a78bfa" opacity="0.8"/><circle cx="11" cy="9" r="2" fill="#a78bfa" opacity="0.8"/></svg>`,
-  programs:   `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="none" stroke="#f97316" stroke-width="1.3"/><polyline points="4.5,7 6.5,5 8.5,7 10,5.5" stroke="#f97316" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  video:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="3" width="9" height="8" rx="1.5" fill="none" stroke="#ec4899" stroke-width="1.3"/><path d="M10 5.5l3-2v7l-3-2V5.5z" fill="#ec4899" opacity="0.8"/></svg>`,
-  unfinished: `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#fbbf24" stroke-width="1.3"/><polyline points="7,3.5 7,7 9.5,9" stroke="#fbbf24" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`,
-  finished:   `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#22c55e" stroke-width="1.3"/><polyline points="4,7 6,9 10,5" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  programs:   `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="none" stroke="#fb923c" stroke-width="1.3"/><polyline points="4.5,7 6.5,5 8.5,7 10,5.5" stroke="#fb923c" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  video:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="3" width="9" height="8" rx="1.5" fill="none" stroke="#f472b6" stroke-width="1.3"/><path d="M10 5.5l3-2v7l-3-2V5.5z" fill="#f472b6" opacity="0.8"/></svg>`,
+  unfinished: `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#fcd34d" stroke-width="1.3"/><polyline points="7,3.5 7,7 9.5,9" stroke="#fcd34d" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`,
+  finished:   `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#86efac" stroke-width="1.3"/><polyline points="4,7 6,9 10,5" stroke="#86efac" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   queued:     `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="1" y="6" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="1" y="10" width="8"  height="2.5" rx="1.2" fill="#94a3b8"/></svg>`,
-  drive:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="4" width="12" height="6" rx="2" fill="none" stroke="#64748b" stroke-width="1.3"/><circle cx="10.5" cy="7" r="1.2" fill="#64748b"/></svg>`,
+  drive:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="4" width="12" height="6" rx="2" fill="none" stroke="#909090" stroke-width="1.3"/><circle cx="10.5" cy="7" r="1.2" fill="#909090"/></svg>`,
 };
 
 const CAT_EXT = {
@@ -533,7 +533,7 @@ async function buildCatTree() {
       const count = countByFilter(filter);
       const active = activeFilter === filter ? " active" : "";
       html += `<div class="cat-node${active}" data-filter="${escHtml(filter)}">
-        <svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 5-3 5H2V2z" fill="none" stroke="#93c5fd" stroke-width="1.3"/></svg>
+        <svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 5-3 5H2V2z" fill="none" stroke="#60a5fa" stroke-width="1.3"/></svg>
         <span class="cat-label">${escHtml(lbl)}</span>
         ${count > 0 ? `<span class="cat-count">${count}</span>` : ""}
       </div>`;
@@ -994,6 +994,14 @@ function setStatus(msg) {
 }
 
 /* ── Speed Graph ────────────────────────────────────────────────── */
+function hexToRgba(hex, alpha) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  if (Number.isNaN(n) || full.length !== 6) return `rgba(232,232,232,${alpha})`;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 function drawSpeedChart(totalSpeed) {
   speedHistory.push(totalSpeed);
   speedHistory.shift();
@@ -1019,14 +1027,15 @@ function drawSpeedChart(totalSpeed) {
     const y = H - (v / max) * (H - 6) - 3;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = "#2563eb";
+  const lineColor = getComputedStyle(document.body).getPropertyValue("--text").trim() || "#e8e8e8";
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   ctx.lineTo(W, H);
   ctx.lineTo(0, H);
   ctx.closePath();
-  ctx.fillStyle = "rgba(37,99,235,0.12)";
+  ctx.fillStyle = hexToRgba(lineColor, 0.12);
   ctx.fill();
 
   // Grid line at 50%
@@ -1408,7 +1417,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
     const info  = result?.info  ?? null;
     const error = result?.error ?? null;
     if (info) {
-      statusEl.style.color = "#4ade80";
+      statusEl.style.color = "#86efac";
       statusEl.textContent = `v${info.version} is available! Downloading now starts from the update banner.`;
       // The main window shows the actual banner via the update-available
       // event the backend now emits (see update_check in commands.rs) -
@@ -1419,7 +1428,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
       statusEl.textContent = "Could not reach update server.";
       console.warn("[Speusis] Update check failed:", error);
     } else {
-      statusEl.style.color = "#4ade80";
+      statusEl.style.color = "#86efac";
       statusEl.textContent = `You're up to date! (v${_appVersion} is the latest)`;
     }
   } catch {
@@ -1490,11 +1499,11 @@ function updateRegBadge() {
   if (regFormVersionEl) regFormVersionEl.textContent = `Speusis v${_appVersion}`;
   if (_isRegistered) {
     const license = getStoredLicense();
-    if (badge) { badge.textContent = license?.name ? `Speusis v${_appVersion} • Registered to ${license.name}` : `Speusis v${_appVersion} • Registered`; badge.style.color = "#4ade80"; }
-    if (menuItem) { menuItem.style.color = "#4ade80"; menuItem.style.fontWeight = "700"; }
+    if (badge) { badge.textContent = license?.name ? `Speusis v${_appVersion} • Registered to ${license.name}` : `Speusis v${_appVersion} • Registered`; badge.style.color = "#86efac"; }
+    if (menuItem) { menuItem.style.color = "#86efac"; menuItem.style.fontWeight = "700"; }
   } else {
     if (badge) { badge.textContent = `Speusis v${_appVersion}`; badge.style.color = "var(--accent)"; }
-    if (menuItem) { menuItem.style.color = "#fbbf24"; menuItem.style.fontWeight = "600"; }
+    if (menuItem) { menuItem.style.color = "#fcd34d"; menuItem.style.fontWeight = "600"; }
   }
 }
 
@@ -1612,7 +1621,7 @@ if (btnRegActivate) {
       if (successView) successView.classList.remove("hidden");
       fillRegLicenseCard(licenseData);
     } catch (err) {
-      if (ki) { ki.style.borderColor = "#ef4444"; setTimeout(() => ki.style.borderColor = "", 1500); }
+      if (ki) { ki.style.borderColor = "#f87171"; setTimeout(() => ki.style.borderColor = "", 1500); }
       const statusText = typeof err === "string" ? err : (err?.message || "Activation failed.");
       console.warn("[Speusis] License activation failed:", statusText);
     } finally {
@@ -2344,7 +2353,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.29 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.30 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
