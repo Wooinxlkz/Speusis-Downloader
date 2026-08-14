@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.31 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.32 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.31";
+let _appVersion = "0.5.32";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -173,8 +173,10 @@ function prepareDialogHeaders() {
     handle.dataset.headerReady = "1";
     handle.classList.add("dialog-titlebar", "panel-drag-handle");
 
+    const existingClose = handle.querySelector(":scope > .dialog-close");
     const existingIcon = handle.querySelector(":scope > svg");
     if (existingIcon) existingIcon.remove();
+
     const icon = document.createElement("img");
     icon.className = "dialog-title-icon";
     icon.src = "./speusis-icon.png";
@@ -183,11 +185,13 @@ function prepareDialogHeaders() {
 
     const titleText = document.createElement("span");
     titleText.className = "dialog-title-text";
-    [...handle.childNodes].forEach(node => titleText.appendChild(node));
+    [...handle.childNodes].forEach(node => {
+      if (node !== existingClose) titleText.appendChild(node);
+    });
     handle.replaceChildren(icon, titleText);
 
-    const close = document.createElement("button");
-    close.className = "dialog-close";
+    const close = existingClose || document.createElement("button");
+    close.classList.add("dialog-close");
     close.type = "button";
     close.dataset.closePanel = panel.id;
     close.setAttribute("aria-label", "Close dialog");
@@ -212,15 +216,18 @@ function installDialogDragging() {
     const handle = box.querySelector(".panel-title, .delete-confirm-title");
     if (!handle || handle.dataset.dragReady === "1") return;
     handle.dataset.dragReady = "1";
+    handle.style.touchAction = "none";
     handle.addEventListener("pointerdown", event => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 || event.isPrimary === false) return;
       if (event.target.closest("button, a, input, select, textarea")) return;
       event.preventDefault();
 
       if (isNativePanelWindow) {
         const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
-        currentWindow?.startDragging?.().catch?.(() => {});
-        return;
+        if (currentWindow?.startDragging) {
+          Promise.resolve(currentWindow.startDragging()).catch(() => {});
+          return;
+        }
       }
 
       const rect = box.getBoundingClientRect();
@@ -402,7 +409,7 @@ const BTN_SVG = {
 const VIDEO_EXT = /\.(mp4|mkv|avi|mov|wmv|flv|webm|ts|m3u8|mpd|m4v)$/i;
 const AUDIO_EXT = /\.(mp3|flac|wav|aac|ogg|m4a|wma)$/i;
 
-function buildActionButtons(status, taskName) {
+function buildActionButtons(status, taskName, kind) {
   const b = [];
   const isMedia = VIDEO_EXT.test(taskName || "") || AUDIO_EXT.test(taskName || "");
   if (status === "running") {
@@ -422,7 +429,49 @@ function buildActionButtons(status, taskName) {
     b.push(`<button class="row-btn rb-retry" data-action="redownload" title="Re-download">${BTN_SVG.retry}</button>`);
   }
   b.push(`<button class="row-btn rb-del" data-action="delete" title="Delete">${BTN_SVG.del}</button>`);
-  return b.join("");
+
+  const menuItems = [
+    ["properties", "Properties"],
+    ["segmentmap", "Segment map"],
+    ["tracer", "Download trace"],
+    ["rename", "Move / rename"],
+  ];
+  if (kind === "torrent") menuItems.push(["torrent-files", "Torrent files"]);
+
+  return `${b.join("")}
+    <span class="row-action-menu">
+      <button class="row-more" type="button" title="More actions" aria-label="More actions" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="16" cy="10" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+      <span class="row-action-dropdown hidden" role="menu">
+        ${menuItems.map(([action, label]) => `<button class="row-menu-item" type="button" data-action="${action}" role="menuitem">${label}</button>`).join("")}
+      </span>
+    </span>`;
+}
+
+function closeRowActionMenus(except = null) {
+  document.querySelectorAll(".row-action-dropdown:not(.hidden)").forEach(menu => {
+    if (menu !== except) {
+      menu.classList.add("hidden");
+      menu.previousElementSibling?.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+function positionRowActionMenu(more, menu) {
+  if (!more || !menu) return;
+  const rect = more.getBoundingClientRect();
+  menu.style.position = "fixed";
+  menu.style.right = "auto";
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 158, rect.right - 150))}px`;
+  menu.style.top = `${Math.min(window.innerHeight - 12, rect.bottom + 6)}px`;
+  if (rect.bottom + 6 + menu.offsetHeight > window.innerHeight) {
+    menu.style.top = `${Math.max(8, rect.top - menu.offsetHeight - 6)}px`;
+  }
 }
 
 function scanBadge(scan) {
@@ -656,9 +705,28 @@ function upsertRow(task) {
     row.dataset.scan = scanKey;
     row.querySelector('[data-role="status"]').innerHTML = statusBadge(t);
     const actions = row.querySelector('[data-role="actions"]');
-    actions.innerHTML = buildActionButtons(t.status, name);
+    actions.innerHTML = buildActionButtons(t.status, name, t.kind);
     actions.querySelectorAll(".row-btn").forEach(btn => {
       btn.addEventListener("click", e => { e.stopPropagation(); handleRowAction(task.id, btn.dataset.action); });
+    });
+    const more = actions.querySelector(".row-more");
+    const menu = actions.querySelector(".row-action-dropdown");
+    more?.addEventListener("click", e => {
+      e.stopPropagation();
+      const shouldOpen = menu?.classList.contains("hidden");
+      closeRowActionMenus(menu);
+      if (menu && shouldOpen) {
+        menu.classList.remove("hidden");
+        more.setAttribute("aria-expanded", "true");
+        positionRowActionMenu(more, menu);
+      }
+    });
+    actions.querySelectorAll(".row-menu-item").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        closeRowActionMenus();
+        handleRowAction(task.id, btn.dataset.action);
+      });
     });
   }
 
@@ -1109,7 +1177,10 @@ function openCtxMenu(e, id) {
   ctxMenu.style.left = Math.max(0, x) + "px";
   ctxMenu.style.top  = Math.max(0, y) + "px";
 }
-document.addEventListener("click", () => ctxMenu.classList.add("hidden"));
+document.addEventListener("click", () => {
+  ctxMenu.classList.add("hidden");
+  closeRowActionMenus();
+});
 ctxMenu.addEventListener("click", e => {
   const item = e.target.closest(".ctx-item");
   if (!item || item.classList.contains("ctx-grayed")) return;
@@ -2511,7 +2582,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.31 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.32 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
