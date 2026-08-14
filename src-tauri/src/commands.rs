@@ -524,26 +524,18 @@ pub async fn panel_open(app: AppHandle, panel: String, id: Option<String>) -> Re
     .decorations(false)
     .always_on_top(true)
     .focused(true)
-    .visible(false)
     .build()
     .map_err(|e| e.to_string())?;
-
-    // Safety net: the window is built hidden and only shown once the
-    // frontend's ResizeObserver measures the real content and calls
-    // panel_resize (see app.js). If that never fires - empty panel, JS
-    // error, missing .panel-box - the window would stay invisible forever,
-    // so show it at the guessed size after a short grace period regardless.
-    let app_fallback = app.clone();
-    let label_fallback = label.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(700)).await;
-        if let Some(w) = app_fallback.get_webview_window(&label_fallback) {
-            if !w.is_visible().unwrap_or(true) {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-        }
-    });
+    // Built immediately visible at its exact configured size from
+    // native_panel_config above - no hidden-then-measure-then-show dance.
+    // That was tried before specifically to fix these dialogs looking
+    // broken, but the frontend's ResizeObserver kept re-measuring shared
+    // index.html content (which differs by active tab, loaded fonts, etc.)
+    // and overwriting this already-correct size with a wrong one - that
+    // was the actual cause of the huge empty gaps. Removed the JS side of
+    // that loop too (installNativePanelSizing in app.js); manual resizing
+    // via the edge/corner grips is untouched since that's user-initiated,
+    // not automatic.
 
     Ok(())
 }
@@ -608,7 +600,7 @@ pub async fn settings_get(state: State<'_, AppState>) -> Result<speusis_core::ty
 /// that the download engine's sync closures read from - see state.rs doc
 /// comment for why there are two copies.
 #[tauri::command]
-pub async fn settings_update(state: State<'_, AppState>, patch: serde_json::Value) -> Result<speusis_core::types::AppSettings, String> {
+pub async fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: serde_json::Value) -> Result<speusis_core::types::AppSettings, String> {
     let updated = {
         let mut settings = state.settings.lock().await;
         settings.update(patch).await.map_err(|e| e.to_string())?.clone()
@@ -616,6 +608,13 @@ pub async fn settings_update(state: State<'_, AppState>, patch: serde_json::Valu
     if let Ok(mut snap) = state.settings_snapshot.write() {
         *snap = updated.clone();
     }
+    // Theme/accent changed here only ever applied to whichever window's own
+    // document.body triggered it - if that was a native panel window (e.g.
+    // Options), the main window (and every other open dialog) never saw the
+    // change at all, since each is a fully separate DOM. Broadcasting to
+    // every open window is what update-available already does for the same
+    // reason - same fix, same pattern.
+    let _ = app.emit("settings-updated", &updated);
     Ok(updated)
 }
 

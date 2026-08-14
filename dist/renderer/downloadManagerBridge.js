@@ -98,6 +98,11 @@ window.downloadManager = {
     listen("update-available", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
     return () => unlisten && unlisten();
   },
+  onSettingsUpdated: (handler) => {
+    let unlisten;
+    listen("settings-updated", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
+    return () => unlisten && unlisten();
+  },
 
   // --- Hot-patch system ---
   // Found in the real preload.ts but NOT built out on the Rust side yet.

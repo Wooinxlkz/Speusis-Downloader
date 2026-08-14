@@ -145,6 +145,7 @@ body.native-panel-window .overlay-panel {
   background:var(--bg);
   padding:12px;
   overflow:hidden;
+  align-items:flex-start;
 }
 body.native-panel-window .panel-box {
   max-width:none;

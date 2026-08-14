@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.32 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.33 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.32";
+let _appVersion = "0.5.33";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -268,6 +268,11 @@ function installDialogDragging() {
 }
 installDialogDragging();
 
+// Every window - main and every open dialog - keeps its own theme/accent in
+// sync now, instead of only whichever single window's Options dropdown you
+// happened to change it from.
+api.onSettingsUpdated?.(applyAppearance);
+
 /* ── Resizable download-list columns ───────────────────────────── */
 const tablePanel = document.querySelector(".table-panel");
 const tableHeader = tablePanel?.querySelector(".tbl-header");
@@ -424,19 +429,25 @@ function buildActionButtons(status, taskName, kind) {
     b.push(`<button class="row-btn rb-stop" data-action="stop" title="Cancel">${BTN_SVG.stop}</button>`);
   } else if (status === "completed") {
     if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
-    b.push(`<button class="row-btn rb-retry" data-action="redownload" title="Re-download">${BTN_SVG.retry}</button>`);
-  } else {
-    b.push(`<button class="row-btn rb-retry" data-action="redownload" title="Re-download">${BTN_SVG.retry}</button>`);
   }
-  b.push(`<button class="row-btn rb-del" data-action="delete" title="Delete">${BTN_SVG.del}</button>`);
+  // Delete and Re-download used to be their own standalone icons alongside
+  // the 3-dot menu (3 icons total for a completed row). Folded into the
+  // dropdown instead, so the row only ever shows the "..." button plus
+  // whichever transfer-control buttons (pause/stop/resume/preview) are
+  // actually relevant to the current status.
 
-  const menuItems = [
+  const menuItems = [];
+  if (status === "completed" || status === "failed" || status === "cancelled") {
+    menuItems.push(["redownload", "Re-download"]);
+  }
+  menuItems.push(
     ["properties", "Properties"],
     ["segmentmap", "Segment map"],
     ["tracer", "Download trace"],
     ["rename", "Move / rename"],
-  ];
+  );
   if (kind === "torrent") menuItems.push(["torrent-files", "Torrent files"]);
+  menuItems.push(["delete", "Delete"]);
 
   return `${b.join("")}
     <span class="row-action-menu">
@@ -2465,38 +2476,17 @@ const NATIVE_PANEL_SIZES = {
 };
 
 function installNativePanelSizing() {
-  if (!isNativePanelWindow || !nativePanelName || !window.ResizeObserver) return;
+  if (!isNativePanelWindow || !nativePanelName) return;
   const panel = document.getElementById(nativePanelName);
-  const box = panel?.querySelector(".panel-box");
-  if (!box || !api.resizePanel) return;
+  if (!panel) return;
 
-  const [minWidth, minHeight] = NATIVE_PANEL_SIZES[nativePanelName] || [320, 220];
-
-  let lastWidth = 0;
-  let lastHeight = 0;
-  let resizeFrame = 0;
-  let userResized = false;
-  const resizeWindowToCard = () => {
-    resizeFrame = 0;
-    if (userResized) return; // the user took manual control via a resize handle - stop fighting them
-    const rect = box.getBoundingClientRect();
-    const width = Math.max(minWidth, Math.ceil(rect.width + 24));
-    const height = Math.max(minHeight, Math.ceil(rect.height + 24));
-    if (width === lastWidth && height === lastHeight) return;
-    lastWidth = width;
-    lastHeight = height;
-    api.resizePanel(nativePanelName, width, height).catch(() => {});
-  };
-  const scheduleResize = () => {
-    if (!resizeFrame) resizeFrame = requestAnimationFrame(resizeWindowToCard);
-  };
-
-  new ResizeObserver(scheduleResize).observe(box);
-  scheduleResize();
-
-  // Real OS-level edge/corner resizing, same idea as startDragging() above -
-  // Tauri exposes startResizeDragging(direction) specifically for windows
-  // with decorations(false), since there's no native resize border to grab.
+  // The window is already built at its exact correct size from
+  // native_panel_config (Rust) before this ever runs - no measuring or
+  // auto-resizing here. That loop (ResizeObserver -> measure -> resizePanel
+  // -> repeat) has now caused this same "broken looking dialog" complaint
+  // twice - it kept re-measuring shared index.html content and overwriting
+  // an already-correct size with a wrong one. Trusting the Rust-side size
+  // as final removes the loop instead of patching it again.
   const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
   if (!currentWindow?.startResizeDragging) return;
   const DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
@@ -2506,7 +2496,6 @@ function installNativePanelSizing() {
     grip.addEventListener("pointerdown", event => {
       if (event.button !== 0) return;
       event.preventDefault();
-      userResized = true;
       currentWindow.startResizeDragging(dir).catch(() => {});
     });
     panel.appendChild(grip);
@@ -2582,7 +2571,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.32 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.33 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
