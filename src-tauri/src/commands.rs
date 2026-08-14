@@ -653,7 +653,7 @@ pub async fn settings_remove_credential(app: AppHandle, state: State<'_, AppStat
     let mut current = state.settings.lock().await.get().credentials.clone();
     current.retain(|c| c.domain != domain);
     let patch = serde_json::json!({ "credentials": current });
-    settings_update(state, patch).await?;
+    settings_update(app, state, patch).await?;
     Ok(())
 }
 
