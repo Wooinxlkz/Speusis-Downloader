@@ -639,17 +639,17 @@ pub async fn settings_set_auto_start(app: AppHandle, enabled: bool) -> Result<()
 }
 
 #[tauri::command]
-pub async fn settings_add_credential(state: State<'_, AppState>, cred: SiteCredential) -> Result<(), String> {
+pub async fn settings_add_credential(app: AppHandle, state: State<'_, AppState>, cred: SiteCredential) -> Result<(), String> {
     let mut current = state.settings.lock().await.get().credentials.clone();
     current.retain(|c| c.domain != cred.domain);
     current.push(cred);
     let patch = serde_json::json!({ "credentials": current });
-    settings_update(state, patch).await?;
+    settings_update(app, state, patch).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn settings_remove_credential(state: State<'_, AppState>, domain: String) -> Result<(), String> {
+pub async fn settings_remove_credential(app: AppHandle, state: State<'_, AppState>, domain: String) -> Result<(), String> {
     let mut current = state.settings.lock().await.get().credentials.clone();
     current.retain(|c| c.domain != domain);
     let patch = serde_json::json!({ "credentials": current });
