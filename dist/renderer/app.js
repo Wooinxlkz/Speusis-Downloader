@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.28 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.29 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.28";
+let _appVersion = "0.5.29";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -59,6 +59,14 @@ const themeMode       = document.getElementById("themeMode");
 const accentColor     = document.getElementById("accentColor");
 const scanCompletedFiles = document.getElementById("scanCompletedFiles");
 const settingsDet     = document.getElementById("settingsDetails");
+const maxConcurrentEl  = document.getElementById("maxConcurrentDownloads");
+const defaultSegmentsEl = document.getElementById("defaultSegments");
+const downloadLimitKbEl = document.getElementById("downloadLimitKb");
+const uploadLimitKbEl   = document.getElementById("uploadLimitKb");
+const listenerPortEl    = document.getElementById("listenerPort");
+const remoteAccessEl    = document.getElementById("remoteAccess");
+const allowInvalidTlsEl = document.getElementById("allowInvalidTls");
+const seedRatioEl       = document.getElementById("seedRatio");
 const menuDropdown    = document.getElementById("menuDropdown");
 const statTotal       = document.getElementById("statTotal");
 const statActive      = document.getElementById("statActive");
@@ -1635,43 +1643,23 @@ async function refreshSettings() {
   if (blocklistEl) blocklistEl.value   = s.ipBlocklistUrl  ?? "";
   if (retriesEl)   retriesEl.value     = s.maxRetries      ?? 5;
 
-  const fields = {
-    "Download Dir":     s.downloadDir,
-    "Max Concurrent":   s.maxConcurrentDownloads,
-    "Segments":         s.defaultSegments,
-    "Listener Port":    s.listenerPort,
-    "Download Limit":   s.downloadLimit  ? fmt(s.downloadLimit)+"/s"  : "Unlimited",
-    "Upload Limit":     s.uploadLimit    ? fmt(s.uploadLimit)+"/s"    : "Unlimited",
-    "Seed Ratio":       s.seedRatio,
-    "Max Retries":      s.maxRetries ?? 5,
-    "Invalid TLS":      s.allowInvalidTls ? "Allowed" : "Strict",
-    "Remote Access":    s.remoteAccess ? "Enabled (0.0.0.0)" : "Local only",
-    "Security Scan":    s.scanCompletedFiles ? "Windows Defender after completion" : "Off",
-    "File Routing":     s.fileTypeRouting ? "On (Video, Music, Documents…)" : "Off",
-    "IP Blocklist":     s.ipBlocklistUrl || "Not configured",
-  };
+  if (maxConcurrentEl)   maxConcurrentEl.value   = s.maxConcurrentDownloads ?? 3;
+  if (defaultSegmentsEl) defaultSegmentsEl.value = s.defaultSegments ?? 8;
+  if (downloadLimitKbEl) downloadLimitKbEl.value = s.downloadLimit ? Math.round(s.downloadLimit / 1024) : 0;
+  if (uploadLimitKbEl)   uploadLimitKbEl.value   = s.uploadLimit   ? Math.round(s.uploadLimit / 1024)   : 0;
+  if (listenerPortEl)    listenerPortEl.value    = s.listenerPort ?? 9999;
+  if (remoteAccessEl)    remoteAccessEl.checked  = s.remoteAccess ?? false;
+  if (allowInvalidTlsEl) allowInvalidTlsEl.checked = s.allowInvalidTls ?? false;
+  if (seedRatioEl)       seedRatioEl.value       = s.seedRatio ?? 1.0;
+
+  const fields = { "Download Directory": s.downloadDir };
   settingsDet.innerHTML = Object.entries(fields)
     .map(([k,v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v??"-"))}</strong></div>`)
     .join("");
-  const connectionDetails = document.querySelector(".settings-details-connection");
-  if (connectionDetails) {
-    connectionDetails.innerHTML = [
-      ["Listener", `127.0.0.1:${s.listenerPort}`],
-      ["Remote access", s.remoteAccess ? "Enabled (0.0.0.0)" : "Local only"],
-      ["TLS policy", s.allowInvalidTls ? "Allow invalid certificates" : "Strict certificates"],
-      ["Upload limit", s.uploadLimit ? `${fmt(s.uploadLimit)}/s` : "Unlimited"],
-      ["Download limit", s.downloadLimit ? `${fmt(s.downloadLimit)}/s` : "Unlimited"],
-    ].map(([k, v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v))}</strong></div>`).join("");
-  }
   const advancedDetails = document.querySelector(".settings-details-advanced");
   if (advancedDetails) {
-    advancedDetails.innerHTML = [
-      ["Engine", "Speusis multi-segment core"],
-      ["Default segments", s.defaultSegments],
-      ["Max concurrent", s.maxConcurrentDownloads],
-      ["Seed ratio", s.seedRatio],
-      ["Download directory", s.downloadDir],
-    ].map(([k, v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v ?? "-"))}</strong></div>`).join("");
+    advancedDetails.innerHTML = [["Engine", "Speusis multi-segment core"]]
+      .map(([k, v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v ?? "-"))}</strong></div>`).join("");
   }
   return s;
 }
@@ -1715,6 +1703,55 @@ document.getElementById("maxRetries")?.addEventListener("change", async e => {
   const v = parseInt(e.target.value) || 0;
   await api.updateSettings({ maxRetries: Math.max(0, Math.min(20, v)) });
   setStatus("Max retries set to " + v);
+});
+
+maxConcurrentEl?.addEventListener("change", async e => {
+  const v = Math.max(1, Math.min(20, parseInt(e.target.value) || 1));
+  e.target.value = v;
+  await api.updateSettings({ maxConcurrentDownloads: v });
+  setStatus("Max concurrent downloads set to " + v);
+});
+defaultSegmentsEl?.addEventListener("change", async e => {
+  const v = Math.max(1, Math.min(16, parseInt(e.target.value) || 1));
+  e.target.value = v;
+  await api.updateSettings({ defaultSegments: v });
+  setStatus("Segments per download set to " + v + " (applies to new downloads)");
+});
+downloadLimitKbEl?.addEventListener("change", async e => {
+  const kb = Math.max(0, parseInt(e.target.value) || 0);
+  e.target.value = kb;
+  await api.updateSettings({ downloadLimit: kb * 1024 });
+  setStatus(kb ? `Download limit set to ${kb} KB/s` : "Download limit removed");
+});
+uploadLimitKbEl?.addEventListener("change", async e => {
+  const kb = Math.max(0, parseInt(e.target.value) || 0);
+  e.target.value = kb;
+  await api.updateSettings({ uploadLimit: kb * 1024 });
+  setStatus(kb ? `Upload limit set to ${kb} KB/s` : "Upload limit removed");
+});
+listenerPortEl?.addEventListener("change", async e => {
+  const v = Math.max(1024, Math.min(65535, parseInt(e.target.value) || 9999));
+  e.target.value = v;
+  await api.updateSettings({ listenerPort: v });
+  setStatus("Listener port set to " + v + " — restart Speusis to apply");
+});
+remoteAccessEl?.addEventListener("change", async e => {
+  if (e.target.checked) {
+    const ok = confirm("Accept browser-extension connections from other devices on your network? Only enable this on networks you trust.");
+    if (!ok) { e.target.checked = false; return; }
+  }
+  await api.updateSettings({ remoteAccess: e.target.checked });
+  setStatus((e.target.checked ? "Remote access enabled" : "Remote access disabled") + " — restart Speusis to apply");
+});
+allowInvalidTlsEl?.addEventListener("change", async e => {
+  await api.updateSettings({ allowInvalidTls: e.target.checked });
+  setStatus(e.target.checked ? "Invalid TLS certificates allowed" : "Strict TLS certificates required");
+});
+seedRatioEl?.addEventListener("change", async e => {
+  const v = Math.max(0, parseFloat(e.target.value) || 0);
+  e.target.value = v;
+  await api.updateSettings({ seedRatio: v });
+  setStatus("Default seed ratio goal set to " + v);
 });
 
 /* ── Scheduler Panel ────────────────────────────────────────────── */
@@ -2307,7 +2344,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.28 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.29 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));

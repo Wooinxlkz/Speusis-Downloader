@@ -240,6 +240,7 @@ body.native-panel-window .panel-box {
   border-radius:4px; color:var(--text); outline:none; font-size:12px; width:100%;
 }
 .pf-row input:focus, .pf-row select:focus { border-color:var(--accent); }
+.settings-unit { color:var(--muted); font-size:11px; margin-left:6px; }
 .pf-buttons {
   display:flex; gap:8px; justify-content:flex-end;
   padding:14px 16px; border-top:1px solid var(--border); margin-top:14px;

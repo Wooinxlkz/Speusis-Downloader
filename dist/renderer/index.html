@@ -262,16 +262,49 @@
               <input id="maxRetries" type="number" min="0" max="20" style="width:80px;" />
             </div>
             <div class="settings-note">Completed files stay in their original location. Routing only affects new downloads.</div>
+            <div class="settings-section-heading">Performance</div>
+            <div class="pf-row">
+              <label>Max concurrent</label>
+              <input id="maxConcurrentDownloads" type="number" min="1" max="20" style="width:80px;" />
+            </div>
+            <div class="pf-row">
+              <label>Segments per file</label>
+              <input id="defaultSegments" type="number" min="1" max="16" style="width:80px;" />
+            </div>
+            <div class="settings-note">Max concurrent applies immediately. Segments apply to new downloads only.</div>
             <div id="settingsDetails" class="settings-details"></div>
           </section>
           <section class="settings-tab-panel" data-settings-panel="connection" role="tabpanel">
+            <div class="settings-section-heading">Bandwidth</div>
+            <div class="pf-row">
+              <label>Download limit</label>
+              <input id="downloadLimitKb" type="number" min="0" style="width:90px;" /> <span class="settings-unit">KB/s (0 = unlimited)</span>
+            </div>
+            <div class="pf-row">
+              <label>Upload limit</label>
+              <input id="uploadLimitKb" type="number" min="0" style="width:90px;" /> <span class="settings-unit">KB/s (0 = unlimited)</span>
+            </div>
+            <div class="settings-section-heading">Listener &amp; access</div>
+            <div class="pf-row">
+              <label>Port</label>
+              <input id="listenerPort" type="number" min="1024" max="65535" style="width:90px;" />
+            </div>
+            <div class="pf-row">
+              <label>Remote access</label>
+              <label class="toggle-wrap"><input type="checkbox" id="remoteAccess" /><span class="toggle-track"></span> Accept connections from other devices (0.0.0.0)</label>
+            </div>
+            <div class="settings-note">Port and remote access changes take effect after restarting Speusis. Only enable remote access on networks you trust.</div>
             <div class="settings-section-heading">Network protection</div>
             <div class="pf-row">
               <label>IP Blocklist URL</label>
               <input id="ipBlocklistUrl" type="text" placeholder="http://… or local file path (optional)" />
             </div>
             <div class="settings-note">Speusis reloads the blocklist after you change this address. Leave it empty to disable the list.</div>
-            <div class="settings-details settings-details-connection"></div>
+            <div class="pf-row">
+              <label>Invalid TLS</label>
+              <label class="toggle-wrap"><input type="checkbox" id="allowInvalidTls" /><span class="toggle-track"></span> Allow invalid/self-signed certificates</label>
+            </div>
+            <div class="settings-note">Only enable this if downloads fail on certificate errors from a source you trust — it weakens connection security.</div>
           </section>
           <section class="settings-tab-panel" data-settings-panel="security" role="tabpanel">
             <div class="settings-section-heading">Completed file scanning</div>
@@ -286,8 +319,13 @@
             </div>
           </section>
           <section class="settings-tab-panel" data-settings-panel="advanced" role="tabpanel">
-            <div class="settings-section-heading">Engine snapshot</div>
-            <div class="settings-note">These values are read-only here because they are controlled by the active download engine.</div>
+            <div class="settings-section-heading">Torrent seeding</div>
+            <div class="pf-row">
+              <label>Seed ratio goal</label>
+              <input id="seedRatio" type="number" min="0" step="0.1" style="width:80px;" />
+            </div>
+            <div class="settings-note">Default seeding ratio for new torrents. Existing torrents keep their own ratio setting.</div>
+            <div class="settings-section-heading">Engine</div>
             <div class="settings-details settings-details-advanced"></div>
           </section>
         </div>
