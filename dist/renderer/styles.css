@@ -260,6 +260,48 @@ body.native-panel-window .panel-box {
   flex-shrink:0;
 }
 .settings-details { padding:10px 16px; overflow-y:auto; }
+
+/* ── SEGMENT MAP ───────────────────────────────────────────────── */
+.seg-map-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(28px, 1fr));
+  gap:5px; padding:12px 14px 4px;
+}
+.seg-tile {
+  aspect-ratio:1; border-radius:3px; border:1px solid var(--border);
+  background:var(--panel2); display:flex; align-items:center; justify-content:center;
+  font-size:8px; color:var(--dim); transition:background .15s,border-color .15s;
+}
+.seg-tile.seg-done { background:rgba(110,231,183,.16); border-color:#6ee7b7; color:#6ee7b7; }
+.seg-tile.seg-partial { background:rgba(252,211,77,.14); border-color:#fcd34d; color:#fcd34d; }
+.seg-map-stats {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; padding:12px 14px 4px;
+}
+.seg-map-stats .sms-item { }
+.seg-map-stats .sms-label { font-size:9px; color:var(--dim); letter-spacing:.1em; text-transform:uppercase; }
+.seg-map-stats .sms-value { font-size:14px; color:var(--text); font-weight:700; margin-top:2px; }
+
+/* ── TRACER PANEL ──────────────────────────────────────────────── */
+.tracer-tabs { display:flex; gap:2px; padding:8px 10px 0; border-bottom:1px solid var(--border); }
+.tracer-tab {
+  border:0; background:transparent; color:var(--dim); cursor:pointer;
+  padding:6px 10px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  border-bottom:2px solid transparent; transition:color .12s,border-color .12s;
+}
+.tracer-tab:hover { color:var(--text); }
+.tracer-tab.active { color:var(--accent-hl); border-bottom-color:var(--accent-hl); }
+.tracer-list { max-height:420px; overflow-y:auto; padding:6px 10px; }
+.tracer-item {
+  padding:8px 6px; border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; gap:4px;
+}
+.tracer-item:last-child { border-bottom:none; }
+.tracer-item-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.tracer-item-name { font-size:11px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.tracer-item-rate { font-size:10px; color:var(--muted); flex-shrink:0; }
+.tracer-item-meta { font-size:10px; color:var(--dim); display:flex; align-items:center; gap:6px; }
+.tracer-progress { height:3px; background:var(--panel2); border-radius:2px; overflow:hidden; margin-top:2px; }
+.tracer-progress-fill { height:100%; background:var(--accent-hl); }
+.tracer-item-actions { display:flex; gap:4px; margin-left:auto; }
 #settingsPanel .settings-details { overflow:visible; }
 .sd-row {
   display:flex; justify-content:space-between; padding:5px 0;

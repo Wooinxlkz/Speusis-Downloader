@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.30 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.31 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -303,6 +303,10 @@ fn main() {
             let get_max_retries: Arc<dyn Fn() -> u32 + Send + Sync> =
                 Arc::new(move || snap_for_retries.read().map(|s| s.max_retries).unwrap_or(5));
 
+            let snap_for_temp_dir = Arc::clone(&settings_snapshot);
+            let get_temp_dir: Arc<dyn Fn() -> String + Send + Sync> =
+                Arc::new(move || snap_for_temp_dir.read().map(|s| s.temp_dir.clone()).unwrap_or_default());
+
             let http_downloader = Arc::new(HttpDirectDownloader::new(
                 event_bus.clone(),
                 Arc::clone(&network),
@@ -310,6 +314,7 @@ fn main() {
                 get_download_limit_bps,
                 get_credentials,
                 get_max_retries,
+                get_temp_dir,
             ));
             let ftp_downloader = Arc::new(FtpDownloader::new(event_bus.clone(), Arc::clone(&files)));
 
@@ -599,6 +604,7 @@ fn main() {
             commands::download_remove,
             commands::download_pause,
             commands::download_resume,
+            commands::download_segment_map,
             commands::download_open_file,
             commands::download_open_folder,
             commands::download_open_with,

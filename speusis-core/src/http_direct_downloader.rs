@@ -59,6 +59,7 @@ pub struct HttpDirectDownloader {
     get_download_limit_bps: Arc<dyn Fn() -> u64 + Send + Sync>,
     get_credentials: Arc<dyn Fn(&str) -> Option<SiteCredential> + Send + Sync>,
     get_max_retries: Arc<dyn Fn() -> u32 + Send + Sync>,
+    get_temp_dir: Arc<dyn Fn() -> String + Send + Sync>,
     controllers: StdMutex<HashMap<String, CancellationToken>>,
     progress_samples: StdMutex<HashMap<String, ProgressSample>>,
 }
@@ -71,6 +72,7 @@ impl HttpDirectDownloader {
         get_download_limit_bps: Arc<dyn Fn() -> u64 + Send + Sync>,
         get_credentials: Arc<dyn Fn(&str) -> Option<SiteCredential> + Send + Sync>,
         get_max_retries: Arc<dyn Fn() -> u32 + Send + Sync>,
+        get_temp_dir: Arc<dyn Fn() -> String + Send + Sync>,
     ) -> Self {
         Self {
             event_bus,
@@ -79,6 +81,7 @@ impl HttpDirectDownloader {
             get_download_limit_bps,
             get_credentials,
             get_max_retries,
+            get_temp_dir,
             controllers: StdMutex::new(HashMap::new()),
             progress_samples: StdMutex::new(HashMap::new()),
         }
@@ -558,7 +561,12 @@ impl HttpDirectDownloader {
         FileManager::ensure_directory(&target_dir).await?;
         crate::debug_log::log("run: ensure_directory OK");
 
-        let part_path = FileManager::get_part_path(&target_dir, &filename).to_string_lossy().to_string();
+        let temp_dir_setting = (self.get_temp_dir)();
+        let part_dir = if temp_dir_setting.trim().is_empty() { target_dir.clone() } else { temp_dir_setting };
+        if part_dir != target_dir {
+            FileManager::ensure_directory(&part_dir).await?;
+        }
+        let part_path = FileManager::get_part_path(&part_dir, &filename).to_string_lossy().to_string();
         let final_path = FileManager::get_final_path(&target_dir, &filename).to_string_lossy().to_string();
         crate::debug_log::log(&format!("run: part_path={part_path} final_path={final_path}"));
         *part_path_out = Some(part_path.clone());

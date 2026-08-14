@@ -183,6 +183,7 @@ pub struct AppSettings {
     pub file_type_routing: bool,
     pub ip_blocklist_url: String,
     pub max_retries: u32,
+    pub temp_dir: String,
 }
 
 impl AppSettings {
@@ -228,8 +229,30 @@ impl AppSettings {
             file_type_routing: false,
             ip_blocklist_url: String::new(),
             max_retries: 5,
+            temp_dir: String::new(),
         }
     }
+}
+
+// ---- segment map (live per-segment progress, read from the resume manifest) ----
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentMapEntry {
+    pub index: u32,
+    pub start: u64,
+    pub end: u64,
+    pub received: u64,
+    pub done: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentMapResponse {
+    pub total_segments: u32,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub segments: Vec<SegmentMapEntry>,
 }
 
 // ---- events.ts ----

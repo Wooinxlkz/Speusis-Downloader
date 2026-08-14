@@ -22,6 +22,7 @@ window.downloadManager = {
   removeDownload: (id, deleteFromDisk = false) => invoke("download_remove", { id, deleteFromDisk }),
   pauseDownload: (id) => invoke("download_pause", { id }),
   resumeDownload: (id) => invoke("download_resume", { id }),
+  getSegmentMap: (id) => invoke("download_segment_map", { id }),
   addTorrentFile: () => invoke("download_add_torrent_file"),
   previewDownload: (id) => invoke("download_preview", { id }),
   getStreamingUrl: (id) => invoke("download_streaming_url", { id }),

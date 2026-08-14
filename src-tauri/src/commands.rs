@@ -169,6 +169,26 @@ pub async fn download_resume(state: State<'_, AppState>, id: String) -> Result<O
     Ok(state.scheduler.resume(&id).await)
 }
 
+/// Live per-segment progress for the segment-map viewer. Reads the on-disk
+/// resume manifest that the downloader already writes as it works — returns
+/// `None` if the task isn't found or hasn't written a manifest yet (e.g.
+/// single-segment, queued, or already finished/moved to its final path).
+#[tauri::command]
+pub async fn download_segment_map(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<speusis_core::types::SegmentMapResponse>, String> {
+    let part_path = state
+        .scheduler
+        .list()
+        .await
+        .into_iter()
+        .find(|t| t.id == id)
+        .and_then(|t| t.part_path);
+    let Some(part_path) = part_path else { return Ok(None) };
+    Ok(speusis_core::file_manager::FileManager::read_segment_map(&part_path).await)
+}
+
 async fn find_task_path(state: &State<'_, AppState>, id: &str) -> Option<String> {
     state.scheduler.list().await.into_iter()
         .find(|t| t.id == id)
@@ -467,6 +487,8 @@ fn native_panel_config(panel: &str) -> Option<(&'static str, f64, f64)> {
         "renameDialog" => ("Move / Rename", 480.0, 300.0),
         "propertiesDialog" => ("Download Properties", 520.0, 420.0),
         "deleteConfirmDialog" => ("Confirm Deletion", 520.0, 360.0),
+        "segmentMapDialog" => ("Segment Map", 340.0, 300.0),
+        "tracerPanel" => ("Download Trace", 380.0, 560.0),
         _ => return None,
     })
 }

@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.30 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.31 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.30";
+let _appVersion = "0.5.31";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -52,6 +52,8 @@ const labelInput      = document.getElementById("labelInput");
 const ctxMenu         = document.getElementById("contextMenu");
 const renameDialog    = document.getElementById("renameDialog");
 const propertiesDialog= document.getElementById("propertiesDialog");
+const segmentMapDialog= document.getElementById("segmentMapDialog");
+const tracerPanel     = document.getElementById("tracerPanel");
 const deleteConfirmDialog = document.getElementById("deleteConfirmDialog");
 const catTree         = document.getElementById("catTree");
 const catPanel        = document.getElementById("catPanel");
@@ -67,6 +69,7 @@ const listenerPortEl    = document.getElementById("listenerPort");
 const remoteAccessEl    = document.getElementById("remoteAccess");
 const allowInvalidTlsEl = document.getElementById("allowInvalidTls");
 const seedRatioEl       = document.getElementById("seedRatio");
+const tempDirEl         = document.getElementById("tempDir");
 const menuDropdown    = document.getElementById("menuDropdown");
 const statTotal       = document.getElementById("statTotal");
 const statActive      = document.getElementById("statActive");
@@ -78,7 +81,7 @@ const speedChart      = document.getElementById("speedChart");
 const sgLabel         = document.getElementById("sgLabel");
 
 /* ── All panels (for closeAllPanels) ──────────────────────────── */
-const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel];
+const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel, segmentMapDialog, tracerPanel];
 
 /* ── Keyboard shortcuts ─────────────────────────────────────────── */
 document.addEventListener("keydown", e => {
@@ -813,6 +816,12 @@ async function handleRowAction(id, action) {
     case "properties": {
       openPropertiesDialog(id); break;
     }
+    case "segmentmap": {
+      openSegmentMapDialog(id); break;
+    }
+    case "tracer": {
+      openTracerPanel(); break;
+    }
     case "torrent-files": {
       openTorrentFilesPanel(id); break;
     }
@@ -870,6 +879,141 @@ function openPropertiesDialog(id) {
   openPanel(propertiesDialog);
   document.getElementById("btnCloseProperties").onclick = () => closePanel(propertiesDialog);
 }
+
+/* ── Segment map dialog ─────────────────────────────────────────── */
+let _segMapPoll = null;
+function stopSegMapPoll() { if (_segMapPoll) { clearInterval(_segMapPoll); _segMapPoll = null; } }
+
+async function renderSegmentMap(id) {
+  const grid = document.getElementById("segMapGrid");
+  const stats = document.getElementById("segMapStats");
+  const empty = document.getElementById("segMapEmpty");
+  let map;
+  try { map = await api.getSegmentMap(id); } catch { map = null; }
+
+  if (!map || !map.totalSegments) {
+    grid.innerHTML = ""; stats.innerHTML = "";
+    grid.classList.add("hidden"); stats.classList.add("hidden");
+    empty.classList.remove("hidden");
+    return;
+  }
+  grid.classList.remove("hidden"); stats.classList.remove("hidden"); empty.classList.add("hidden");
+
+  grid.innerHTML = map.segments.map(seg => {
+    const len = seg.end - seg.start + 1;
+    const partial = !seg.done && seg.received > 0;
+    const cls = seg.done ? "seg-done" : partial ? "seg-partial" : "";
+    const pct = len > 0 ? Math.round((seg.received / len) * 100) : 0;
+    return `<div class="seg-tile ${cls}" title="Segment ${seg.index + 1}: ${pct}%">${seg.done ? "✓" : (partial ? pct : "")}</div>`;
+  }).join("");
+
+  const doneCount = map.segments.filter(s => s.done).length;
+  const remaining = Math.max(0, map.totalBytes - map.downloadedBytes);
+  stats.innerHTML = [
+    ["Downloaded", fmt(map.downloadedBytes)],
+    ["Remaining",  fmt(remaining)],
+    ["Segments",   `${doneCount} / ${map.totalSegments}`],
+    ["Total size", fmt(map.totalBytes)],
+  ].map(([label, value]) => `<div class="sms-item"><div class="sms-label">${escHtml(label)}</div><div class="sms-value">${escHtml(value)}</div></div>`).join("");
+}
+
+async function openSegmentMapDialog(id) {
+  const task = taskStore.get(id);
+  document.getElementById("segMapName").textContent = task ? displayName(task) : "";
+  await renderSegmentMap(id);
+  openPanel(segmentMapDialog, id);
+  stopSegMapPoll();
+  _segMapPoll = setInterval(() => renderSegmentMap(id), 1500);
+  document.getElementById("btnCloseSegMap").onclick = () => { stopSegMapPoll(); closePanel(segmentMapDialog); };
+}
+
+/* ── Tracer panel (compact all/active/done trace view) ─────────── */
+let _tracerFilter = "all";
+let _tracerPoll = null;
+function stopTracerPoll() { if (_tracerPoll) { clearInterval(_tracerPoll); _tracerPoll = null; } }
+
+function tracerStatusClass(status) {
+  if (status === "active" || status === "downloading") return "st-running";
+  if (status === "completed" || status === "done") return "st-completed";
+  if (status === "paused") return "st-paused";
+  if (status === "failed") return "st-failed";
+  if (status === "queued") return "st-queued";
+  return "st-cancelled";
+}
+
+async function renderTracerList() {
+  const list = document.getElementById("tracerList");
+  if (!list) return;
+  let tasks = [];
+  try { tasks = await api.listDownloads(); } catch { tasks = []; }
+
+  const filtered = tasks.filter(t => {
+    if (_tracerFilter === "active") return t.status === "active" || t.status === "downloading";
+    if (_tracerFilter === "done") return t.status === "completed" || t.status === "done";
+    return true;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="settings-note">No downloads to show.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => {
+    const size = Number(t.size || 0);
+    const received = Number(t.receivedBytes || 0);
+    const pct = size > 0 ? Math.min(100, Math.round((received / size) * 100)) : 0;
+    const isActive = t.status === "active" || t.status === "downloading";
+    const isPaused = t.status === "paused";
+    const rate = isActive ? fmt(speedMap.get(t.id) || 0) + "/s" : "";
+    return `<div class="tracer-item" data-id="${escHtml(t.id)}">
+      <div class="tracer-item-top">
+        <span class="tracer-item-name">${escHtml(displayName(t))}</span>
+        <span class="tracer-item-rate">${escHtml(rate)}</span>
+      </div>
+      <div class="tracer-item-meta">
+        <span class="st-badge ${tracerStatusClass(t.status)}">${escHtml(t.status || "—")}</span>
+        <span>${size > 0 ? fmt(size) : "—"}</span>
+        ${(isActive || isPaused) ? `<span class="tracer-item-actions">
+          ${isActive ? `<button class="row-btn rb-pause" data-tracer-action="pause" title="Pause">${BTN_SVG.pause}</button>` : ""}
+          ${isPaused ? `<button class="row-btn rb-play" data-tracer-action="resume" title="Resume">${BTN_SVG.play}</button>` : ""}
+          <button class="row-btn rb-stop" data-tracer-action="stop" title="Stop">${BTN_SVG.stop}</button>
+        </span>` : ""}
+      </div>
+      ${size > 0 ? `<div class="tracer-progress"><div class="tracer-progress-fill" style="width:${pct}%"></div></div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+async function openTracerPanel() {
+  _tracerFilter = "all";
+  document.querySelectorAll(".tracer-tab").forEach(t => t.classList.toggle("active", t.dataset.tracerFilter === "all"));
+  await renderTracerList();
+  openPanel(tracerPanel);
+  stopTracerPoll();
+  _tracerPoll = setInterval(renderTracerList, 1500);
+}
+
+document.getElementById("btnCloseTracer")?.addEventListener("click", () => { stopTracerPoll(); closePanel(tracerPanel); });
+document.querySelectorAll(".tracer-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    _tracerFilter = tab.dataset.tracerFilter;
+    document.querySelectorAll(".tracer-tab").forEach(t => t.classList.toggle("active", t === tab));
+    renderTracerList();
+  });
+});
+document.getElementById("tracerList")?.addEventListener("click", async e => {
+  const btn = e.target.closest("[data-tracer-action]");
+  if (!btn) return;
+  const id = btn.closest(".tracer-item")?.dataset.id;
+  if (!id) return;
+  const action = btn.dataset.tracerAction;
+  try {
+    if (action === "pause") await api.pauseDownload(id);
+    else if (action === "resume") await api.resumeDownload(id);
+    else if (action === "stop") await api.cancelDownload(id);
+  } catch {}
+  renderTracerList();
+});
 
 /* ── Delete confirmation (IDM-style) ────────────────────────────── */
 let _skipDeleteConfirm = localStorage.getItem("speusis_skipDeleteConfirm") === "1";
@@ -1660,6 +1804,7 @@ async function refreshSettings() {
   if (remoteAccessEl)    remoteAccessEl.checked  = s.remoteAccess ?? false;
   if (allowInvalidTlsEl) allowInvalidTlsEl.checked = s.allowInvalidTls ?? false;
   if (seedRatioEl)       seedRatioEl.value       = s.seedRatio ?? 1.0;
+  if (tempDirEl)         tempDirEl.value         = s.tempDir ?? "";
 
   const fields = { "Download Directory": s.downloadDir };
   settingsDet.innerHTML = Object.entries(fields)
@@ -1761,6 +1906,11 @@ seedRatioEl?.addEventListener("change", async e => {
   e.target.value = v;
   await api.updateSettings({ seedRatio: v });
   setStatus("Default seed ratio goal set to " + v);
+});
+tempDirEl?.addEventListener("change", async e => {
+  const v = e.target.value.trim();
+  await api.updateSettings({ tempDir: v });
+  setStatus(v ? "Temp directory set — applies to new downloads" : "Temp directory cleared — using download folder");
 });
 
 /* ── Scheduler Panel ────────────────────────────────────────────── */
@@ -2199,6 +2349,12 @@ async function initializeNativePanel() {
     case "propertiesDialog":
       openPropertiesDialog(nativePanelTaskId);
       break;
+    case "segmentMapDialog":
+      openSegmentMapDialog(nativePanelTaskId);
+      break;
+    case "tracerPanel":
+      openTracerPanel();
+      break;
     case "deleteConfirmDialog":
       showDeleteConfirm(nativePanelTaskId);
       break;
@@ -2233,6 +2389,8 @@ const NATIVE_PANEL_SIZES = {
   renameDialog: [480, 300],
   propertiesDialog: [520, 420],
   deleteConfirmDialog: [520, 360],
+  segmentMapDialog: [340, 300],
+  tracerPanel: [380, 560],
 };
 
 function installNativePanelSizing() {
@@ -2353,7 +2511,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.30 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.31 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
