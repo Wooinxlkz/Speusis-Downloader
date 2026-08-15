@@ -269,9 +269,12 @@
             </div>
             <div class="pf-row">
               <label>Segments per file</label>
-              <input id="defaultSegments" type="number" min="1" max="16" style="width:80px;" />
+              <div class="settings-control-row">
+                <input id="defaultSegments" type="number" min="1" max="16" />
+                <button id="btnViewSegmentMap" class="btn-later settings-map-btn" type="button">View map</button>
+              </div>
             </div>
-            <div class="settings-note">Max concurrent applies immediately. Segments apply to new downloads only.</div>
+            <div class="settings-note">Max concurrent applies immediately. Segments apply to new downloads only. View map uses the selected download.</div>
             <div class="settings-section-heading">Paths</div>
             <div class="pf-row">
               <label>Temp dir</label>
@@ -868,14 +871,22 @@
 
     <!-- SEGMENT MAP DIALOG -->
     <div id="segmentMapDialog" class="overlay-panel hidden" role="dialog">
-      <div class="panel-box" style="width:300px;">
+      <div class="panel-box segment-map-box">
         <div class="panel-title">
           <svg width="14" height="14" viewBox="0 0 20 20"><rect x="2" y="8" width="4" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="8" width="4" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="8" width="4" height="4" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
           <span id="segMapTitle">Segment Map</span>
+          <span id="segMapSpeed" class="seg-map-title-speed">—</span>
         </div>
-        <div id="segMapName" style="padding:10px 14px 0;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+        <div class="seg-map-file-row">
+          <span id="segMapName"></span>
+          <span id="segMapActive">NO LIVE MAP</span>
+        </div>
         <div id="segMapGrid" class="seg-map-grid"></div>
         <div id="segMapStats" class="seg-map-stats"></div>
+        <div class="seg-map-footer">
+          <span id="segMapSummary">— segments</span>
+          <span>SEGMENTS / FILE</span>
+        </div>
         <div id="segMapEmpty" class="settings-note hidden">No live segment data yet — segment info is only available while a multi-segment download is actively running.</div>
         <div class="pf-buttons"><button id="btnCloseSegMap" class="btn-cancel">Close</button></div>
       </div>
@@ -883,16 +894,18 @@
 
     <!-- TRACER PANEL -->
     <div id="tracerPanel" class="overlay-panel hidden" role="dialog">
-      <div class="panel-box" style="width:360px;">
+      <div class="panel-box tracer-box">
         <div class="panel-title panel-drag-handle">
           <svg width="14" height="14" viewBox="0 0 20 20"><path d="M2 10h16M2 5h16M2 15h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Download Trace
+          <span class="tracer-brand">flexd ·</span> Download Trace
+          <span class="tracer-summary"><span id="tracerActiveCount">0</span> active&nbsp;&nbsp; <span id="tracerSpeed">0 B/s</span></span>
           <button class="dialog-close" id="btnCloseTracer" style="margin-left:auto;">&times;</button>
         </div>
         <div class="tracer-tabs">
-          <button class="tracer-tab active" data-tracer-filter="all">All</button>
-          <button class="tracer-tab" data-tracer-filter="active">Active</button>
-          <button class="tracer-tab" data-tracer-filter="done">Done</button>
+          <button class="tracer-tab active" data-tracer-filter="all">ALL <span id="tracerAllCount">0</span></button>
+          <button class="tracer-tab" data-tracer-filter="active">ACTIVE <span id="tracerActiveTabCount">0</span></button>
+          <button class="tracer-tab" data-tracer-filter="done">DONE <span id="tracerDoneCount">0</span></button>
+          <span class="tracer-tab-spacer"></span><span class="tracer-sort">↓ ALL&nbsp;&nbsp;&nbsp;▶ ALL</span>
         </div>
         <div id="tracerList" class="tracer-list"></div>
       </div>

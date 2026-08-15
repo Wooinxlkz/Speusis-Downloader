@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.33 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.35 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.33";
+let _appVersion = "0.5.35";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -109,11 +109,29 @@ function resetDialogPosition(panel) {
   box.classList.remove("is-dragging");
 }
 
+function stopPanelActivity(panel) {
+  if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll();
+  if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll();
+}
+
 function openPanel(panel, taskId) {
   if (!panel) return;
 
   if (!isNativePanelWindow) {
-    api.openPanel(panel.id, taskId).catch(() => {});
+    ALL_PANELS.forEach(other => {
+      if (other !== panel) {
+        stopPanelActivity(other);
+        other.classList.add("hidden");
+        other.setAttribute("aria-hidden", "true");
+        delete other.dataset.taskId;
+        resetDialogPosition(other);
+      }
+    });
+    resetDialogPosition(panel);
+    if (taskId) panel.dataset.taskId = taskId;
+    else delete panel.dataset.taskId;
+    panel.classList.remove("hidden");
+    panel.setAttribute("aria-hidden", "false");
     return;
   }
 
@@ -132,15 +150,21 @@ function closePanel(panel) {
   if (!panel) return;
 
   if (!isNativePanelWindow) {
-    api.closePanel(panel.id).catch(() => {});
+    stopPanelActivity(panel);
+    panel.classList.add("hidden");
+    panel.setAttribute("aria-hidden", "true");
+    delete panel.dataset.taskId;
+    resetDialogPosition(panel);
     return;
   }
   if (panel.id === nativePanelName) {
+    stopPanelActivity(panel);
     api.closePanel(panel.id).catch(() => {});
     return;
   }
 
   panel.classList.add("hidden");
+  stopPanelActivity(panel);
   panel.setAttribute("aria-hidden", "true");
   delete panel.dataset.taskId;
   resetDialogPosition(panel);
@@ -276,11 +300,12 @@ api.onSettingsUpdated?.(applyAppearance);
 /* ── Resizable download-list columns ───────────────────────────── */
 const tablePanel = document.querySelector(".table-panel");
 const tableHeader = tablePanel?.querySelector(".tbl-header");
-const columnStorageKey = "speusis.downloadTable.columnWidths";
+const columnStorageKey = "speusis.downloadTable.columnWidths.v2";
 const columnDefaults = [
-  "minmax(180px, 1fr)", "32px", "90px", "120px", "78px", "110px", "118px",
+  "minmax(220px, 1.8fr)", "38px", "minmax(84px, .7fr)", "minmax(150px, 1.1fr)",
+  "minmax(96px, .7fr)", "minmax(124px, 1fr)", "minmax(128px, 1fr)",
 ];
-const columnMinimums = [160, 28, 70, 90, 70, 90, 80];
+const columnMinimums = [190, 32, 78, 132, 88, 108, 112];
 let columnWidths = columnDefaults.map(() => null);
 
 try {
@@ -321,15 +346,21 @@ function installColumnResizing() {
 
       const startX = event.clientX;
       const startWidth = cell.getBoundingClientRect().width;
-      columnWidths[index] = Math.max(columnMinimums[index], Math.round(startWidth));
+        const otherMinimumWidth = columnWidths.reduce((sum, width, otherIndex) => (
+          otherIndex === index
+            ? sum
+            : sum + Math.max(columnMinimums[otherIndex], width || columnMinimums[otherIndex])
+        ), 0);
+        const maxWidth = Math.max(columnMinimums[index], tablePanel.clientWidth - otherMinimumWidth);
+        columnWidths[index] = Math.min(maxWidth, Math.max(columnMinimums[index], Math.round(startWidth)));
       applyColumnWidths();
       handle.setPointerCapture?.(event.pointerId);
       document.body.classList.add("tbl-column-resizing");
 
       const move = moveEvent => {
-        const nextWidth = Math.max(
-          columnMinimums[index],
-          Math.round(startWidth + moveEvent.clientX - startX),
+        const nextWidth = Math.min(
+          maxWidth,
+          Math.max(columnMinimums[index], Math.round(startWidth + moveEvent.clientX - startX)),
         );
         columnWidths[index] = nextWidth;
         applyColumnWidths();
@@ -414,6 +445,29 @@ const BTN_SVG = {
 const VIDEO_EXT = /\.(mp4|mkv|avi|mov|wmv|flv|webm|ts|m3u8|mpd|m4v)$/i;
 const AUDIO_EXT = /\.(mp3|flac|wav|aac|ogg|m4a|wma)$/i;
 
+function actionMenuMarkup(status, kind) {
+  if (!ctxMenu) return "";
+  const isDone = status === "completed";
+  const isActive = ["running", "queued"].includes(status);
+  const isPausedOrFailed = ["paused", "failed", "cancelled"].includes(status);
+  const disabled = action => (
+    (["open", "openwith", "openfolder"].includes(action) && !isDone && !isActive) ||
+    (action === "resume" && !isPausedOrFailed) ||
+    (["pause", "stop"].includes(action) && !isActive)
+  );
+
+  return [...ctxMenu.children].map(source => {
+    if (source.classList.contains("ctx-sep")) return source.outerHTML;
+    if (!source.classList.contains("ctx-item")) return "";
+    const action = source.dataset.action;
+    if (action === "torrent-files" && kind !== "torrent") return "";
+    const item = source.cloneNode(true);
+    item.removeAttribute("id");
+    item.className = `row-menu-item${disabled(action) ? " ctx-grayed" : ""}`;
+    return item.outerHTML;
+  }).join("");
+}
+
 function buildActionButtons(status, taskName, kind) {
   const b = [];
   const isMedia = VIDEO_EXT.test(taskName || "") || AUDIO_EXT.test(taskName || "");
@@ -436,19 +490,6 @@ function buildActionButtons(status, taskName, kind) {
   // whichever transfer-control buttons (pause/stop/resume/preview) are
   // actually relevant to the current status.
 
-  const menuItems = [];
-  if (status === "completed" || status === "failed" || status === "cancelled") {
-    menuItems.push(["redownload", "Re-download"]);
-  }
-  menuItems.push(
-    ["properties", "Properties"],
-    ["segmentmap", "Segment map"],
-    ["tracer", "Download trace"],
-    ["rename", "Move / rename"],
-  );
-  if (kind === "torrent") menuItems.push(["torrent-files", "Torrent files"]);
-  menuItems.push(["delete", "Delete"]);
-
   return `${b.join("")}
     <span class="row-action-menu">
       <button class="row-more" type="button" title="More actions" aria-label="More actions" aria-expanded="false">
@@ -458,9 +499,7 @@ function buildActionButtons(status, taskName, kind) {
           <circle cx="16" cy="10" r="1.5" fill="currentColor"/>
         </svg>
       </button>
-      <span class="row-action-dropdown hidden" role="menu">
-        ${menuItems.map(([action, label]) => `<button class="row-menu-item" type="button" data-action="${action}" role="menuitem">${label}</button>`).join("")}
-      </span>
+      <span class="row-action-dropdown hidden" role="menu">${actionMenuMarkup(status, kind)}</span>
     </span>`;
 }
 
@@ -476,9 +515,10 @@ function closeRowActionMenus(except = null) {
 function positionRowActionMenu(more, menu) {
   if (!more || !menu) return;
   const rect = more.getBoundingClientRect();
+  const menuWidth = menu.offsetWidth || 236;
   menu.style.position = "fixed";
   menu.style.right = "auto";
-  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 158, rect.right - 150))}px`;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth))}px`;
   menu.style.top = `${Math.min(window.innerHeight - 12, rect.bottom + 6)}px`;
   if (rect.bottom + 6 + menu.offsetHeight > window.innerHeight) {
     menu.style.top = `${Math.max(8, rect.top - menu.offsetHeight - 6)}px`;
@@ -735,6 +775,7 @@ function upsertRow(task) {
     actions.querySelectorAll(".row-menu-item").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
+        if (btn.classList.contains("ctx-grayed")) return;
         closeRowActionMenus();
         handleRowAction(task.id, btn.dataset.action);
       });
@@ -967,6 +1008,9 @@ async function renderSegmentMap(id) {
   const grid = document.getElementById("segMapGrid");
   const stats = document.getElementById("segMapStats");
   const empty = document.getElementById("segMapEmpty");
+  const summary = document.getElementById("segMapSummary");
+  const speedEl = document.getElementById("segMapSpeed");
+  const activeEl = document.getElementById("segMapActive");
   let map;
   try { map = await api.getSegmentMap(id); } catch { map = null; }
 
@@ -974,9 +1018,15 @@ async function renderSegmentMap(id) {
     grid.innerHTML = ""; stats.innerHTML = "";
     grid.classList.add("hidden"); stats.classList.add("hidden");
     empty.classList.remove("hidden");
+    if (summary) summary.textContent = "— segments";
+    if (speedEl) speedEl.textContent = "—";
+    if (activeEl) activeEl.textContent = "NO LIVE MAP";
     return;
   }
   grid.classList.remove("hidden"); stats.classList.remove("hidden"); empty.classList.add("hidden");
+  if (summary) summary.textContent = `${map.totalSegments} segments`;
+  if (speedEl) speedEl.textContent = speedMap.get(id) > 0 ? `${fmt(speedMap.get(id))}/s` : "—";
+  if (activeEl) activeEl.textContent = `${map.segments.filter(s => !s.done && s.received > 0).length} active`;
 
   grid.innerHTML = map.segments.map(seg => {
     const len = seg.end - seg.start + 1;
@@ -998,6 +1048,10 @@ async function renderSegmentMap(id) {
 
 async function openSegmentMapDialog(id) {
   const task = taskStore.get(id);
+  if (!id || !task) {
+    setStatus("Select a download first to view its segment map");
+    return;
+  }
   document.getElementById("segMapName").textContent = task ? displayName(task) : "";
   await renderSegmentMap(id);
   openPanel(segmentMapDialog, id);
@@ -1006,18 +1060,26 @@ async function openSegmentMapDialog(id) {
   document.getElementById("btnCloseSegMap").onclick = () => { stopSegMapPoll(); closePanel(segmentMapDialog); };
 }
 
-/* ── Tracer panel (compact all/active/done trace view) ─────────── */
+/* ── Tracer panel (FlexD-style all/active/done trace view) ─────── */
 let _tracerFilter = "all";
 let _tracerPoll = null;
 function stopTracerPoll() { if (_tracerPoll) { clearInterval(_tracerPoll); _tracerPoll = null; } }
 
-function tracerStatusClass(status) {
-  if (status === "active" || status === "downloading") return "st-running";
-  if (status === "completed" || status === "done") return "st-completed";
-  if (status === "paused") return "st-paused";
-  if (status === "failed") return "st-failed";
-  if (status === "queued") return "st-queued";
-  return "st-cancelled";
+function traceState(status) {
+  if (status === "running" || status === "active" || status === "downloading") return ["active", "active", "trace-active"];
+  if (status === "completed" || status === "done") return ["done", "done", "trace-done"];
+  if (status === "paused") return ["paused", "paused", "trace-paused"];
+  if (status === "failed") return ["failed", "failed", "trace-failed"];
+  if (status === "queued") return ["waiting", "waiting", "trace-waiting"];
+  return ["cancelled", "cancelled", "trace-failed"];
+}
+
+function traceIcon(state) {
+  if (state === "active") return `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9M6.5 9.5L10 13l3.5-3.5M4 16h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if (state === "done") return `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if (state === "paused") return `<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3.5" height="12" rx="1" fill="currentColor"/><rect x="11.5" y="4" width="3.5" height="12" rx="1" fill="currentColor"/></svg>`;
+  if (state === "failed") return `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  return `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 6.5v4l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 }
 
 async function renderTracerList() {
@@ -1026,14 +1088,24 @@ async function renderTracerList() {
   let tasks = [];
   try { tasks = await api.listDownloads(); } catch { tasks = []; }
 
+  const runningCount = tasks.filter(t => ["running", "active", "downloading"].includes(t.status)).length;
+  const doneCount = tasks.filter(t => ["completed", "done"].includes(t.status)).length;
+  const totalSpeed = [...speedMap.values()].reduce((sum, value) => sum + value, 0);
+  document.getElementById("tracerAllCount")?.replaceChildren(document.createTextNode(String(tasks.length)));
+  document.getElementById("tracerActiveTabCount")?.replaceChildren(document.createTextNode(String(runningCount)));
+  document.getElementById("tracerActiveCount")?.replaceChildren(document.createTextNode(String(runningCount)));
+  document.getElementById("tracerDoneCount")?.replaceChildren(document.createTextNode(String(doneCount)));
+  const tracerSpeed = document.getElementById("tracerSpeed");
+  if (tracerSpeed) tracerSpeed.textContent = `${fmt(totalSpeed)} /s`;
+
   const filtered = tasks.filter(t => {
-    if (_tracerFilter === "active") return t.status === "active" || t.status === "downloading";
-    if (_tracerFilter === "done") return t.status === "completed" || t.status === "done";
+    if (_tracerFilter === "active") return !["completed", "done"].includes(t.status);
+    if (_tracerFilter === "done") return ["completed", "done"].includes(t.status);
     return true;
   });
 
   if (!filtered.length) {
-    list.innerHTML = `<div class="settings-note">No downloads to show.</div>`;
+    list.innerHTML = `<div class="trace-empty">No downloads to show.</div>`;
     return;
   }
 
@@ -1041,24 +1113,29 @@ async function renderTracerList() {
     const size = Number(t.size || 0);
     const received = Number(t.receivedBytes || 0);
     const pct = size > 0 ? Math.min(100, Math.round((received / size) * 100)) : 0;
-    const isActive = t.status === "active" || t.status === "downloading";
+    const [state, label, iconClass] = traceState(t.status);
+    const isActive = state === "active";
     const isPaused = t.status === "paused";
-    const rate = isActive ? fmt(speedMap.get(t.id) || 0) + "/s" : "";
+    const rate = speedMap.get(t.id) > 0 ? fmt(speedMap.get(t.id)) + "/s" : "—";
+    const segments = t.totalSegments || t.segmentCount || t.segments || "—";
+    const receivedLabel = received > 0 ? fmt(received) : "0 B";
     return `<div class="tracer-item" data-id="${escHtml(t.id)}">
       <div class="tracer-item-top">
+        <span class="trace-state-icon ${iconClass}">${traceIcon(state)}</span>
         <span class="tracer-item-name">${escHtml(displayName(t))}</span>
         <span class="tracer-item-rate">${escHtml(rate)}</span>
       </div>
-      <div class="tracer-item-meta">
-        <span class="st-badge ${tracerStatusClass(t.status)}">${escHtml(t.status || "—")}</span>
-        <span>${size > 0 ? fmt(size) : "—"}</span>
+      <div class="tracer-item-meta">${escHtml(receivedLabel)} · ${size > 0 ? escHtml(fmt(size)) : "size unknown"} · ${escHtml(label)}</div>
+      <div class="tracer-item-meta trace-submeta">${isActive ? "ETA " + escHtml(fmtSecs(t.etaSeconds || 0)) : (t.status === "failed" ? "download failed" : label)} · ${escHtml(String(segments))} segs</div>
+      <div class="tracer-progress"><div class="tracer-progress-fill ${iconClass}" style="width:${pct}%"></div></div>
+      <div class="tracer-item-footer">
+        <span>${escHtml(t.outputPath ? "saved to " + t.outputPath : "source: " + (t.url || "").slice(0, 48))}</span>
         ${(isActive || isPaused) ? `<span class="tracer-item-actions">
-          ${isActive ? `<button class="row-btn rb-pause" data-tracer-action="pause" title="Pause">${BTN_SVG.pause}</button>` : ""}
-          ${isPaused ? `<button class="row-btn rb-play" data-tracer-action="resume" title="Resume">${BTN_SVG.play}</button>` : ""}
-          <button class="row-btn rb-stop" data-tracer-action="stop" title="Stop">${BTN_SVG.stop}</button>
+          ${isActive ? `<button class="trace-action" data-tracer-action="pause" title="Pause">${BTN_SVG.pause}</button>` : ""}
+          ${isPaused ? `<button class="trace-action" data-tracer-action="resume" title="Resume">${BTN_SVG.play}</button>` : ""}
+          <button class="trace-action" data-tracer-action="stop" title="Stop">${BTN_SVG.stop}</button>
         </span>` : ""}
       </div>
-      ${size > 0 ? `<div class="tracer-progress"><div class="tracer-progress-fill" style="width:${pct}%"></div></div>` : ""}
     </div>`;
   }).join("");
 }
@@ -1953,6 +2030,10 @@ defaultSegmentsEl?.addEventListener("change", async e => {
   await api.updateSettings({ defaultSegments: v });
   setStatus("Segments per download set to " + v + " (applies to new downloads)");
 });
+document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
+  if (selectedId) openSegmentMapDialog(selectedId);
+  else setStatus("Select a download first to view its segment map");
+});
 downloadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
   e.target.value = kb;
@@ -2571,7 +2652,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.33 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.35 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
