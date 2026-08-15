@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.36 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.37 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.36";
+let _appVersion = "0.5.37";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -54,6 +54,8 @@ const renameDialog    = document.getElementById("renameDialog");
 const propertiesDialog= document.getElementById("propertiesDialog");
 const segmentMapDialog= document.getElementById("segmentMapDialog");
 const tracerPanel     = document.getElementById("tracerPanel");
+const autoUpdateDialog= document.getElementById("autoUpdateDialog");
+const updateWarnDialog= document.getElementById("updateWarnDialog");
 const deleteConfirmDialog = document.getElementById("deleteConfirmDialog");
 const catTree         = document.getElementById("catTree");
 const catPanel        = document.getElementById("catPanel");
@@ -81,7 +83,7 @@ const speedChart      = document.getElementById("speedChart");
 const sgLabel         = document.getElementById("sgLabel");
 
 /* ── All panels (for closeAllPanels) ──────────────────────────── */
-const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel, segmentMapDialog, tracerPanel];
+const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel, segmentMapDialog, tracerPanel, autoUpdateDialog, updateWarnDialog];
 
 /* ── Keyboard shortcuts ─────────────────────────────────────────── */
 document.addEventListener("keydown", e => {
@@ -2545,6 +2547,9 @@ async function initializeNativePanel() {
     case "registrationPanel":
       openRegistrationPanel();
       break;
+    case "autoUpdateDialog":
+      openAutoUpdateDialog();
+      break;
     default: {
       const nativePanel = document.getElementById(nativePanelName);
       if (nativePanel) openPanel(nativePanel, nativePanelTaskId);
@@ -2575,6 +2580,8 @@ const NATIVE_PANEL_SIZES = {
   deleteConfirmDialog: [520, 360],
   segmentMapDialog: [340, 300],
   tracerPanel: [380, 560],
+  autoUpdateDialog: [480, 340],
+  updateWarnDialog: [440, 260],
 };
 
 function installNativePanelSizing() {
@@ -2620,6 +2627,7 @@ async function init() {
   installNativePanelSizing();
   drawSpeedChart(0);
   initUpdateBanner();
+  initAutoUpdatePrompt();
   initClipboardMonitor();
 }
 
@@ -2673,7 +2681,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.36 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.37 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
@@ -2738,6 +2746,71 @@ function initUpdateBanner() {
 
   ubDismiss.addEventListener("click", hideBanner);
 }
+
+/* ── Automatic startup update prompt (IDM-style) ─────────────────── */
+function initAutoUpdatePrompt() {
+  if (!autoUpdateDialog || !api.onStartupUpdateAvailable) return;
+
+  api.onStartupUpdateAvailable(info => {
+    openAutoUpdateDialog(info);
+  });
+}
+
+async function openAutoUpdateDialog(info) {
+  if (!info) {
+    try { info = await api.getPendingUpdate?.(); } catch { info = null; }
+  }
+  if (!info) return;
+
+  autoUpdateDialog.dataset.url = info.downloadUrl || "";
+  const versionLine = document.getElementById("auVersionLine");
+  const notesEl = document.getElementById("auNotes");
+  if (versionLine) versionLine.textContent = `Version ${info.version} is available` + (info.downloadSize ? ` (${fmt(info.downloadSize)})` : "");
+  if (notesEl) notesEl.textContent = info.releaseNotes || "";
+
+  openPanel(autoUpdateDialog);
+}
+
+document.getElementById("btnAutoUpdateYes")?.addEventListener("click", async () => {
+  const btn = document.getElementById("btnAutoUpdateYes");
+  const url = autoUpdateDialog.dataset.url;
+  if (!url) { closePanel(autoUpdateDialog); return; }
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Adding…";
+  try {
+    const result = await api.addDownload({ url, start: true, label: `Speusis v${_appVersion} Setup` });
+    if (result?.id) {
+      taskStore.set(result.id, { ...result, createdAt: Date.now() });
+      upsertRow(taskStore.get(result.id));
+      setStatus("Speusis update added to downloads — check the download list.");
+      scheduleCatTreeRender();
+      closePanel(autoUpdateDialog);
+    } else {
+      btn.disabled = false;
+      btn.textContent = origText;
+      setStatus("Could not add update to download list — opening in browser…");
+      setTimeout(() => api.openUpdateDownload(url), 600);
+      closePanel(autoUpdateDialog);
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = origText;
+    setStatus("Update error — opening in browser…");
+    setTimeout(() => api.openUpdateDownload(url), 600);
+    closePanel(autoUpdateDialog);
+  }
+});
+
+document.getElementById("btnAutoUpdateNo")?.addEventListener("click", () => {
+  closePanel(autoUpdateDialog);
+  openPanel(updateWarnDialog);
+});
+
+document.getElementById("btnUpdateWarnBack")?.addEventListener("click", () => {
+  closePanel(updateWarnDialog);
+  openAutoUpdateDialog();
+});
 
 /* ── Clipboard URL monitor ───────────────────────────────────────── */
 function initClipboardMonitor() {

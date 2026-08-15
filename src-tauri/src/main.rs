@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.36 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.37 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -431,6 +431,7 @@ fn main() {
                 event_bus: event_bus.clone(),
                 torrent_manager,
                 pending_patch: Mutex::new(None),
+                pending_update: StdRwLock::new(None),
                 plugin_manager,
             });
 
@@ -594,6 +595,31 @@ fn main() {
                 })
                 .build(app)?;
 
+            // --- Automatic startup update check (IDM-style prompt) ---
+            // Separate from the manual "Check for Updates" button in About:
+            // that flow is untouched. This just runs once, a few seconds
+            // after launch, and emits its own distinct event so the existing
+            // banner's `update-available` listener is never triggered by it.
+            let startup_update_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                let result = speusis_core::update_checker::check_for_update(
+                    None,
+                    env!("CARGO_PKG_VERSION"),
+                )
+                .await;
+                if let Some(info) = result.info {
+                    if let Ok(mut slot) = startup_update_handle
+                        .state::<AppState>()
+                        .pending_update
+                        .write()
+                    {
+                        *slot = Some(info.clone());
+                    }
+                    let _ = startup_update_handle.emit_to("main", "update-available-startup", info);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -639,6 +665,7 @@ fn main() {
             commands::dialog_choose_file,
             commands::app_get_version,
             commands::update_check,
+            commands::update_get_pending,
             commands::update_open_download,
             commands::update_download_patch,
             commands::update_apply_patch,

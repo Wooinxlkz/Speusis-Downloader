@@ -92,10 +92,16 @@ window.downloadManager = {
   },
 
   checkForUpdate: () => invoke("update_check"),
+  getPendingUpdate: () => invoke("update_get_pending"),
   openUpdateDownload: (url) => invoke("update_open_download", { url }),
   onUpdateAvailable: (handler) => {
     let unlisten;
     listen("update-available", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
+    return () => unlisten && unlisten();
+  },
+  onStartupUpdateAvailable: (handler) => {
+    let unlisten;
+    listen("update-available-startup", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
     return () => unlisten && unlisten();
   },
   onSettingsUpdated: (handler) => {

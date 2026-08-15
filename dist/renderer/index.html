@@ -778,7 +778,37 @@
       </div>
     </div>
 
-    <!-- REGISTRATION PANEL -->
+    <!-- AUTO UPDATE DIALOG (IDM-style, shown automatically at startup) -->
+    <div id="autoUpdateDialog" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box auto-update-box">
+        <div class="delete-confirm-title panel-drag-handle">
+          <img src="./speusis-icon.png" width="16" height="16" style="border-radius:3px;flex-shrink:0;" alt="" />
+          New version of Speusis is available
+        </div>
+        <div class="auto-update-body">
+          <div id="auVersionLine" class="auto-update-version"></div>
+          <div id="auNotes" class="auto-update-notes"></div>
+        </div>
+        <div class="delete-confirm-btns">
+          <button id="btnAutoUpdateYes" class="btn-start" style="min-width:100px;">Update now</button>
+          <button id="btnAutoUpdateNo" class="btn-cancel" style="min-width:80px;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTO UPDATE WARNING DIALOG -->
+    <div id="updateWarnDialog" class="overlay-panel hidden" role="dialog" aria-modal="true">
+      <div class="panel-box delete-confirm-box">
+        <div class="delete-confirm-title panel-drag-handle">
+          <svg width="16" height="16" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#fcd34d" stroke-width="1.8"/><line x1="10" y1="6" x2="10" y2="11" stroke="#fcd34d" stroke-width="2" stroke-linecap="round"/><circle cx="10" cy="14" r="1.2" fill="#fcd34d"/></svg>
+          Speusis
+        </div>
+        <div class="delete-confirm-msg">Because of frequent changes to sites and servers, Speusis needs to keep up with those changes, and that's why Speusis is updated frequently. Thus, it's important to always use the latest version of Speusis to keep everything working correctly.<br/><br/>Are you sure you don't want to update to the latest version of Speusis?</div>
+        <div class="delete-confirm-btns">
+          <button id="btnUpdateWarnBack" class="btn-start" style="min-width:80px;">Back</button>
+        </div>
+      </div>
+    </div>
     <div id="registrationPanel" class="overlay-panel hidden" role="dialog" aria-modal="true">
       <div class="panel-box" style="width:460px;">
         <div class="panel-title panel-drag-handle">

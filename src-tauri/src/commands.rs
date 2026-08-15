@@ -489,6 +489,8 @@ fn native_panel_config(panel: &str) -> Option<(&'static str, f64, f64)> {
         "deleteConfirmDialog" => ("Confirm Deletion", 520.0, 360.0),
         "segmentMapDialog" => ("Segment Map", 340.0, 300.0),
         "tracerPanel" => ("Download Trace", 380.0, 560.0),
+        "autoUpdateDialog" => ("Speusis Update", 480.0, 340.0),
+        "updateWarnDialog" => ("Speusis", 440.0, 260.0),
         _ => return None,
     })
 }
@@ -750,6 +752,17 @@ pub async fn update_check(app: AppHandle) -> Result<speusis_core::update_checker
         let _ = app.emit_to("main", "update-available", info);
     }
     Ok(result)
+}
+
+/// Fetches whatever the automatic startup update check last found, if
+/// anything — used by the auto-update dialog, which (like every other
+/// dialog) opens as its own fresh native window and has no other way to
+/// see the payload the startup check emitted earlier in the main window.
+#[tauri::command]
+pub async fn update_get_pending(
+    state: State<'_, AppState>,
+) -> Result<Option<speusis_core::update_checker::UpdateInfo>, String> {
+    Ok(state.pending_update.read().map(|g| g.clone()).unwrap_or(None))
 }
 
 #[tauri::command]
