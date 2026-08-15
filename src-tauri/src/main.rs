@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.39 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.40 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -282,6 +282,27 @@ fn main() {
             });
             let settings_snapshot = Arc::new(StdRwLock::new(loaded_settings.clone()));
             let settings_shared = Arc::new(Mutex::new(settings_manager));
+
+            // Storing auto_start_with_system=true as the default setting
+            // only changes what gets saved to disk - it doesn't actually
+            // register anything with Windows on its own. The Options
+            // toggle reads the *real* OS registration state
+            // (autolaunch().is_enabled()) in preference to this stored
+            // value, so without this sync a fresh install would still
+            // show the toggle as off despite the new default. Runs every
+            // launch, not just first-run, so it also self-heals if
+            // something external (Task Manager, antivirus) removed the
+            // registration behind the app's back.
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let autolaunch = handle.autolaunch();
+                let currently_enabled = autolaunch.is_enabled().unwrap_or(false);
+                if loaded_settings.auto_start_with_system && !currently_enabled {
+                    let _ = autolaunch.enable();
+                } else if !loaded_settings.auto_start_with_system && currently_enabled {
+                    let _ = autolaunch.disable();
+                }
+            }
 
             let network = Arc::new(NetworkManager::new());
             let files = Arc::new(FileManager::new());
