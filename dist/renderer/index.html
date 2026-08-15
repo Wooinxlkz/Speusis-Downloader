@@ -143,14 +143,14 @@
     </div>
 
     <!-- Clipboard URL banner -->
-    <div id="clipboardBanner" class="update-banner" style="background:rgba(99,102,241,.12);border-color:#6366f1;display:none;">
-      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-        <svg width="16" height="16" viewBox="0 0 20 20" style="flex-shrink:0"><rect x="5" y="2" width="10" height="3" rx="1.5" fill="#6366f1"/><rect x="3" y="4" width="14" height="14" rx="2" fill="none" stroke="#6366f1" stroke-width="1.8"/><polyline points="7,10 9,12 13,8" stroke="#6366f1" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span style="font-size:12px;color:#a5b4fc;font-weight:600;white-space:nowrap;">Clipboard URL detected:</span>
-        <span id="cbUrl" style="font-size:11px;color:#c7d2fe;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;"></span>
+    <div id="clipboardBanner" class="clipboard-banner" style="display:none;">
+      <div class="clipboard-message">
+        <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="2" width="10" height="3" rx="1.5" fill="currentColor"/><rect x="3" y="4" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><polyline points="7,10 9,12 13,8" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="clipboard-label">Clipboard URL detected</span>
+        <span id="cbUrl"></span>
       </div>
-      <button class="ub-btn" id="cbAddBtn" style="background:#6366f1;">Add Download</button>
-      <button class="ub-dismiss" id="cbDismissBtn">Ignore</button>
+      <button class="clipboard-add" id="cbAddBtn">Add download</button>
+      <button class="clipboard-dismiss" id="cbDismissBtn">Ignore</button>
     </div>
 
     <!-- ─────────────── OVERLAY PANELS ─────────────── -->
@@ -270,7 +270,7 @@
             <div class="pf-row">
               <label>Segments per file</label>
               <div class="settings-control-row">
-                <input id="defaultSegments" type="number" min="1" max="16" />
+                <input id="defaultSegments" type="number" min="1" max="32" />
                 <button id="btnViewSegmentMap" class="btn-later settings-map-btn" type="button">View map</button>
               </div>
             </div>
@@ -884,8 +884,15 @@
         <div id="segMapGrid" class="seg-map-grid"></div>
         <div id="segMapStats" class="seg-map-stats"></div>
         <div class="seg-map-footer">
-          <span id="segMapSummary">— segments</span>
-          <span>SEGMENTS / FILE</span>
+          <span><strong id="segMapSummary">— segments</strong><small>SEGMENTS / FILE</small></span>
+          <span id="segMapControls" class="seg-map-controls" aria-label="Segments per file">
+            <button type="button" data-segment-count="1">1</button>
+            <button type="button" data-segment-count="2">2</button>
+            <button type="button" data-segment-count="4">4</button>
+            <button type="button" data-segment-count="8">8</button>
+            <button type="button" data-segment-count="16">16</button>
+            <button type="button" data-segment-count="32">32</button>
+          </span>
         </div>
         <div id="segMapEmpty" class="settings-note hidden">No live segment data yet — segment info is only available while a multi-segment download is actively running.</div>
         <div class="pf-buttons"><button id="btnCloseSegMap" class="btn-cancel">Close</button></div>

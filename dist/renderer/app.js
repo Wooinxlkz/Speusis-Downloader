@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.35 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.36 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.35";
+let _appVersion = "0.5.36";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -518,7 +518,11 @@ function positionRowActionMenu(more, menu) {
   const menuWidth = menu.offsetWidth || 236;
   menu.style.position = "fixed";
   menu.style.right = "auto";
-  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth))}px`;
+  const preferredLeft = rect.left;
+  const left = preferredLeft + menuWidth <= window.innerWidth - 8
+    ? preferredLeft
+    : rect.right - menuWidth;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menuWidth - 8, left))}px`;
   menu.style.top = `${Math.min(window.innerHeight - 12, rect.bottom + 6)}px`;
   if (rect.bottom + 6 + menu.offsetHeight > window.innerHeight) {
     menu.style.top = `${Math.max(8, rect.top - menu.offsetHeight - 6)}px`;
@@ -1027,6 +1031,9 @@ async function renderSegmentMap(id) {
   if (summary) summary.textContent = `${map.totalSegments} segments`;
   if (speedEl) speedEl.textContent = speedMap.get(id) > 0 ? `${fmt(speedMap.get(id))}/s` : "—";
   if (activeEl) activeEl.textContent = `${map.segments.filter(s => !s.done && s.received > 0).length} active`;
+  document.querySelectorAll("#segMapControls [data-segment-count]").forEach(button => {
+    button.classList.toggle("active", Number(button.dataset.segmentCount) === map.totalSegments);
+  });
 
   grid.innerHTML = map.segments.map(seg => {
     const len = seg.end - seg.start + 1;
@@ -1059,6 +1066,20 @@ async function openSegmentMapDialog(id) {
   _segMapPoll = setInterval(() => renderSegmentMap(id), 1500);
   document.getElementById("btnCloseSegMap").onclick = () => { stopSegMapPoll(); closePanel(segmentMapDialog); };
 }
+document.querySelectorAll("#segMapControls [data-segment-count]").forEach(button => {
+  button.addEventListener("click", async () => {
+    const count = Number(button.dataset.segmentCount);
+    if (!Number.isFinite(count)) return;
+    document.querySelectorAll("#segMapControls [data-segment-count]").forEach(b => b.classList.toggle("active", b === button));
+    if (defaultSegmentsEl) defaultSegmentsEl.value = count;
+    try {
+      await api.updateSettings({ defaultSegments: count });
+      setStatus(`${count} segments per file selected for new downloads`);
+    } catch {
+      setStatus("Could not update segments per file");
+    }
+  });
+});
 
 /* ── Tracer panel (FlexD-style all/active/done trace view) ─────── */
 let _tracerFilter = "all";
@@ -2025,7 +2046,7 @@ maxConcurrentEl?.addEventListener("change", async e => {
   setStatus("Max concurrent downloads set to " + v);
 });
 defaultSegmentsEl?.addEventListener("change", async e => {
-  const v = Math.max(1, Math.min(16, parseInt(e.target.value) || 1));
+  const v = Math.max(1, Math.min(32, parseInt(e.target.value) || 1));
   e.target.value = v;
   await api.updateSettings({ defaultSegments: v });
   setStatus("Segments per download set to " + v + " (applies to new downloads)");
@@ -2652,7 +2673,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.35 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.36 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));

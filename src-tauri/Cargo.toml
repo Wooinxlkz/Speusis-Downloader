@@ -1,6 +1,6 @@
 [package]
 name = "speusis"
-version = "0.5.35"
+version = "0.5.36"
 description = "Speusis Downloader - IDM-style hybrid download manager (Tauri/Rust port)"
 edition = "2021"
 

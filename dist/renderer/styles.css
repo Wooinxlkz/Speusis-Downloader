@@ -308,8 +308,21 @@ body.native-panel-window .panel-box {
 .seg-map-file-row span:last-child { color:var(--dim); white-space:nowrap; }
 .seg-map-title-speed { margin-left:auto; color:var(--accent); font-size:10px; font-weight:600; }
 .seg-map-footer {
-  display:flex; justify-content:space-between; padding:8px 14px 4px;
+  display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:8px 14px 4px;
   color:var(--dim); font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+}
+.seg-map-footer > span:first-child { display:flex; flex-direction:column; gap:3px; }
+.seg-map-footer strong { color:var(--text); font-size:11px; letter-spacing:.04em; }
+.seg-map-footer small { color:var(--dim); font-size:8px; letter-spacing:.12em; }
+.seg-map-controls { display:flex !important; flex-direction:row !important; gap:4px; }
+.seg-map-controls button {
+  min-width:25px; height:20px; padding:0 5px; border:1px solid var(--border); border-radius:3px;
+  background:var(--panel2); color:var(--muted); font:600 9px var(--font-mono); cursor:pointer;
+}
+.seg-map-controls button:hover { color:var(--text); border-color:var(--accent); }
+.seg-map-controls button.active {
+  color:var(--accent-hl); border-color:var(--accent); background:rgba(110,231,183,.14);
+  box-shadow:0 0 0 1px rgba(110,231,183,.12) inset;
 }
 
 /* ── TRACER PANEL ──────────────────────────────────────────────── */
@@ -698,6 +711,7 @@ body.tbl-column-resizing, body.tbl-column-resizing * {
   border:1px solid var(--border); border-radius:6px; box-shadow:var(--shadow);
   animation:motionFadeUp .12s ease-out both;
 }
+.row-action-dropdown[style*="position: fixed"] { position:fixed; }
 .row-action-dropdown.hidden { display:none; }
 .row-menu-item {
   display:flex; align-items:center; gap:8px; width:100%; padding:5px 10px; border:0; border-radius:3px;
@@ -828,3 +842,21 @@ body.tbl-column-resizing, body.tbl-column-resizing * {
   font:inherit; font-size:11px; white-space:nowrap; transition:all .1s;
 }
 #updateBanner .ub-dismiss:hover { background:var(--tb-hover); color:var(--accent-hl); }
+
+/* ── CLIPBOARD URL BANNER ─────────────────────────────────────── */
+.clipboard-banner {
+  display:flex; align-items:center; gap:10px; min-height:34px; padding:5px 10px;
+  background:var(--panel2); border-bottom:1px solid var(--accent);
+  color:var(--muted); animation:motionFadeIn .16s ease-out both;
+}
+.clipboard-message { display:flex; align-items:center; gap:8px; flex:1; min-width:0; color:var(--accent); }
+.clipboard-message > svg { flex-shrink:0; }
+.clipboard-label { color:var(--accent-hl); font-size:11px; font-weight:700; white-space:nowrap; letter-spacing:.02em; }
+#cbUrl { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font:10px var(--font-mono); opacity:.8; }
+.clipboard-add, .clipboard-dismiss {
+  height:24px; padding:0 10px; border-radius:3px; font-size:10px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.clipboard-add { border:1px solid var(--accent); background:var(--accent); color:#07110e; }
+.clipboard-add:hover { filter:brightness(1.12); }
+.clipboard-dismiss { border:1px solid var(--border); background:transparent; color:var(--muted); }
+.clipboard-dismiss:hover { color:var(--text); border-color:var(--muted); }
