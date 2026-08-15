@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.37 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.38 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.37";
+let _appVersion = "0.5.38";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -305,7 +305,7 @@ const tableHeader = tablePanel?.querySelector(".tbl-header");
 const columnStorageKey = "speusis.downloadTable.columnWidths.v2";
 const columnDefaults = [
   "minmax(220px, 1.8fr)", "38px", "minmax(84px, .7fr)", "minmax(150px, 1.1fr)",
-  "minmax(96px, .7fr)", "minmax(124px, 1fr)", "minmax(128px, 1fr)",
+  "minmax(96px, .7fr)", "minmax(124px, 1fr)", "112px",
 ];
 const columnMinimums = [190, 32, 78, 132, 88, 108, 112];
 let columnWidths = columnDefaults.map(() => null);
@@ -517,9 +517,16 @@ function closeRowActionMenus(except = null) {
 function positionRowActionMenu(more, menu) {
   if (!more || !menu) return;
   const rect = more.getBoundingClientRect();
-  const menuWidth = menu.offsetWidth || 236;
+  // Switch to fixed positioning FIRST, then measure. Reading offsetWidth
+  // before this was the actual bug: it measured the menu while it was
+  // still laid out under its default (non-fixed) CSS positioning, which
+  // gives a different, unreliable width depending on that particular row's
+  // surrounding layout - so every placement calculation below was already
+  // working from a wrong number, which is why it looked like it opened in
+  // a different, inconsistent place depending on the row.
   menu.style.position = "fixed";
   menu.style.right = "auto";
+  const menuWidth = menu.offsetWidth || 236;
   const preferredLeft = rect.left;
   const left = preferredLeft + menuWidth <= window.innerWidth - 8
     ? preferredLeft
@@ -2681,7 +2688,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.37 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.38 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
