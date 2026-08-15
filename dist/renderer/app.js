@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.38 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.39 — Renderer ────────────────────────────────────── */
 "use strict";
 
 const api = window.downloadManager;
@@ -8,7 +8,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.38";
+let _appVersion = "0.5.39";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -2688,7 +2688,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.38 Setup" });
+      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.39 Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));

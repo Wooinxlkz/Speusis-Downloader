@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.38 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.39 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -595,28 +595,50 @@ fn main() {
                 })
                 .build(app)?;
 
-            // --- Automatic startup update check (IDM-style prompt) ---
+            // --- Automatic update check (IDM-style prompt) ---
             // Separate from the manual "Check for Updates" button in About:
-            // that flow is untouched. This just runs once, a few seconds
-            // after launch, and emits its own distinct event so the existing
-            // banner's `update-available` listener is never triggered by it.
+            // that flow is untouched, its own event name (`update-available`),
+            // its own banner UI, never calls into this dialog.
+            // Runs once ~4s after launch (so the window has time to render
+            // first), then keeps re-checking every few hours for as long as
+            // the app stays open - previously this only ever ran once at
+            // startup, so a release published mid-session was never noticed
+            // until the next relaunch.
             let startup_update_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
-                let result = speusis_core::update_checker::check_for_update(
-                    None,
-                    env!("CARGO_PKG_VERSION"),
-                )
-                .await;
-                if let Some(info) = result.info {
-                    if let Ok(mut slot) = startup_update_handle
-                        .state::<AppState>()
-                        .pending_update
-                        .write()
-                    {
-                        *slot = Some(info.clone());
+                let mut last_notified_version: Option<String> = None;
+                let mut first_run = true;
+                loop {
+                    if first_run {
+                        tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                        first_run = false;
+                    } else {
+                        tokio::time::sleep(std::time::Duration::from_secs(3 * 60 * 60)).await;
                     }
-                    let _ = startup_update_handle.emit_to("main", "update-available-startup", info);
+                    let result = speusis_core::update_checker::check_for_update(
+                        None,
+                        env!("CARGO_PKG_VERSION"),
+                    )
+                    .await;
+                    if let Some(info) = result.info {
+                        // Don't re-nag with a dialog for the exact same
+                        // version the user has already been shown this
+                        // session (they may have dismissed it on purpose).
+                        // A genuinely newer release still gets its own
+                        // fresh prompt.
+                        if last_notified_version.as_deref() == Some(info.version.as_str()) {
+                            continue;
+                        }
+                        last_notified_version = Some(info.version.clone());
+                        if let Ok(mut slot) = startup_update_handle
+                            .state::<AppState>()
+                            .pending_update
+                            .write()
+                        {
+                            *slot = Some(info.clone());
+                        }
+                        let _ = startup_update_handle.emit_to("main", "update-available-startup", info);
+                    }
                 }
             });
 
