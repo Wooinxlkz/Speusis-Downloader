@@ -108,7 +108,13 @@ svg { display:block; flex-shrink:0; }
 .tb-btn:active { background:var(--row-sel); transform:scale(.95); }
 .tb-btn.hidden { display:none; }
 .tb-btn:disabled { opacity:0.45; cursor:not-allowed; pointer-events:none; }
-.tb-icon { width:20px; height:20px; }
+.tb-icon {
+  width:20px; height:20px; color:var(--muted);
+  transition: color .15s ease, transform .15s ease;
+}
+.tb-btn:hover .tb-icon { color:var(--accent); transform:translateY(-1px); }
+.tb-btn:active .tb-icon { transform:scale(.9); }
+.tb-btn:focus-visible .tb-icon { color:var(--accent); }
 .tb-label { font-size:9px; color:var(--dim); line-height:1; letter-spacing:.1em; text-transform:uppercase; }
 .tb-sep { width:1px; background:var(--border); margin:4px 5px; flex-shrink:0; }
 .tb-spacer { flex:1; min-width:8px; max-width:40px; }
