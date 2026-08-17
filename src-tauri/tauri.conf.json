@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist/renderer",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeDevCommand": "cd ../frontend-react && npm run dev",
+    "beforeBuildCommand": "cd ../frontend-react && npm install && npm run build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -28,7 +28,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

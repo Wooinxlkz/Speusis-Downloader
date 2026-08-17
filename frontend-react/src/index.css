@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* Design tokens ported 1:1 from the old dist/renderer/styles.css so the
+   app looks identical after the rewrite. Accent/theme are still applied
+   via data-attributes on <body> (data-theme, data-accent) so the existing
+   Rust-side AppSettings (themeMode/accentColor) and the settings-updated
+   cross-window broadcast keep working with zero backend changes. */
+:root {
+  --bg: #0f0f0f;
+  --panel: #191919;
+  --panel2: #232323;
+  --border: #2c2c2c;
+  --text: #e8e8e8;
+  --muted: #909090;
+  --dim: #505050;
+  --accent: #e8e8e8;
+  --accent-hl: #c0c0c0;
+  --toolbar-bg: #191919;
+  --tb-hover: #232323;
+  --menu-bg: #191919;
+  --cat-bg: #141414;
+  --cat-hover: #232323;
+  --cat-active: #17342a;
+  --tbl-hdr: #191919;
+  --row-even: #0f0f0f;
+  --row-odd: #141414;
+  --row-hover: #232323;
+  --row-sel: #17342a;
+  --sb-bg: #0a0a0a;
+  font-family: "Space Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+body[data-theme="light"] {
+  --bg: #f4f4f2; --panel: #ffffff; --panel2: #ececea;
+  --border: #dcdcd8; --text: #17181a; --muted: #6b6b6b; --dim: #a0a0a0;
+  --toolbar-bg: #ffffff; --tb-hover: #ececea; --menu-bg: #ffffff;
+  --cat-bg: #f4f4f2; --cat-hover: #ececea; --cat-active: #cdf3e1;
+  --tbl-hdr: #ffffff; --row-even: #ffffff; --row-odd: #f7f7f5;
+  --row-hover: #ececea; --row-sel: #cdf3e1; --sb-bg: #ececea;
+}
+body[data-accent="slate"]  { --accent:#e8e8e8; --accent-hl:#c0c0c0; }
+body[data-accent="green"]  { --accent:#6ee7b7; --accent-hl:#86efac; }
+body[data-accent="blue"]   { --accent:#60a5fa; --accent-hl:#93c5fd; }
+body[data-accent="purple"] { --accent:#a78bfa; --accent-hl:#c4b5fd; }
+body[data-accent="orange"] { --accent:#fb923c; --accent-hl:#fcd34d; }
+body[data-accent="red"]    { --accent:#f87171; --accent-hl:#fca5a5; }
+
+@theme {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-accent-hl: var(--accent-hl);
+  --color-toolbar: var(--toolbar-bg);
+  --color-tb-hover: var(--tb-hover);
+  --color-cat-bg: var(--cat-bg);
+  --color-cat-hover: var(--cat-hover);
+  --color-cat-active: var(--cat-active);
+  --color-row-even: var(--row-even);
+  --color-row-odd: var(--row-odd);
+  --color-row-hover: var(--row-hover);
+  --color-row-sel: var(--row-sel);
+  --color-sb-bg: var(--sb-bg);
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+}
+* { box-sizing: border-box; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.panel-drag-handle { -webkit-app-region: drag; }
+.panel-drag-handle button, .panel-drag-handle input, .panel-drag-handle select { -webkit-app-region: no-drag; }
+
+.native-resize-grip { position: fixed; z-index: 50; }
+.native-resize-n, .native-resize-s { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.native-resize-n { top: 0; }
+.native-resize-s { bottom: 0; }
+.native-resize-e, .native-resize-w { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.native-resize-e { right: 0; }
+.native-resize-w { left: 0; }
+.native-resize-ne, .native-resize-nw, .native-resize-se, .native-resize-sw { width: 12px; height: 12px; }
+.native-resize-ne { top: 0; right: 0; cursor: nesw-resize; }
+.native-resize-nw { top: 0; left: 0; cursor: nwse-resize; }
+.native-resize-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.native-resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
