@@ -8,15 +8,19 @@ export default function StatusBar({ tasks, speeds, statusText, version }) {
   const totalSpeed = [...speeds.values()].reduce((a, b) => a + b, 0);
 
   return (
-    <div className="flex items-center justify-between border-t border-border bg-sb-bg px-3 py-1 text-[11px] text-muted shrink-0">
-      <div className="flex gap-4">
+    <div className="statusbar justify-between">
+      <div className="flex items-center gap-2.5">
         <span>{statusText || "Ready"}</span>
       </div>
-      <div className="flex gap-4">
+      <div className="flex items-center gap-2.5">
         <span>Total {total}</span>
+        <span className="sb-sep" />
         <span>Active {active}</span>
+        <span className="sb-sep" />
         <span>Done {done}</span>
+        <span className="sb-sep" />
         <span>{fmt(totalSpeed)}/s</span>
+        <span className="sb-sep" />
         <span className="text-dim">Speusis v{version}</span>
       </div>
     </div>

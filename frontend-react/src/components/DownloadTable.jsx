@@ -41,11 +41,11 @@ export default function DownloadTable({ tasks, speeds, selectedId, onSelect, onA
   return (
     <div ref={panelRef} className="table-panel flex flex-1 flex-col overflow-hidden">
       <div
-        className="grid items-center gap-2 border-b border-border bg-tbl-hdr px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-dim shrink-0"
+        className="tbl-header"
         style={{ gridTemplateColumns: "var(--tbl-cols)" }}
       >
         {COLUMN_LABELS.map((label, i) => (
-          <div key={label} className="relative pr-2">
+          <div key={label} className="tbl-cell">
             {label}
             {i < COLUMN_LABELS.length - 1 && (
               <div

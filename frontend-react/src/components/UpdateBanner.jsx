@@ -29,16 +29,16 @@ export default function UpdateBanner() {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-accent/40 bg-accent/10 px-3 py-1.5 text-[12px] shrink-0">
-      <span>
-        v{info.version} is available{info.downloadSize ? ` (${fmt(info.downloadSize)})` : ""}
-      </span>
-      <div className="flex gap-2">
-        <button disabled={busy} className="rounded bg-accent text-bg px-2 py-1 font-semibold disabled:opacity-50" onClick={download}>
-          {busy ? "Adding…" : "Download Update"}
-        </button>
-        <button className="rounded px-2 py-1 text-muted hover:bg-tb-hover" onClick={() => setInfo(null)}>✕</button>
+    <div id="updateBanner" className="visible">
+      <div className="ub-icon" />
+      <div className="ub-msg">
+        <span>Speusis <strong>{info.version}</strong> is available{info.downloadSize ? ` (${fmt(info.downloadSize)})` : ""}</span>
+        {info.notes && <span className="ub-notes">{info.notes}</span>}
       </div>
+      <button disabled={busy} className="ub-btn" onClick={download}>
+        {busy ? "Adding…" : "Download Update"}
+      </button>
+      <button className="ub-dismiss" onClick={() => setInfo(null)}>Remind me later</button>
     </div>
   );
 }

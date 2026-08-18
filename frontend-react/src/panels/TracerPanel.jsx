@@ -18,13 +18,16 @@ function traceState(status) {
   return "cancelled";
 }
 
-const STATE_STYLES = {
-  active: "text-blue-400 bg-blue-400/10",
-  done: "text-green-400 bg-green-400/10",
-  paused: "text-orange-400 bg-orange-400/10",
-  failed: "text-red-400 bg-red-400/10",
-  waiting: "text-yellow-400 bg-yellow-400/10",
-  cancelled: "text-dim bg-dim/10",
+// class names map 1:1 to .trace-waiting/.trace-active/.trace-done/etc in
+// index.css (ported from the old app) so state colors match exactly:
+// active/done are green, waiting/cancelled are slate, paused is yellow.
+const STATE_CLASS = {
+  active: "trace-active",
+  done: "trace-done",
+  paused: "trace-paused",
+  failed: "trace-failed",
+  waiting: "trace-waiting",
+  cancelled: "trace-waiting",
 };
 
 const STATE_ICONS = {
@@ -76,23 +79,22 @@ export default function TracerPanel() {
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setFilter(t.key)}
-              className={`rounded px-3 py-1 text-[11px] ${filter === t.key ? "bg-accent text-bg font-semibold" : "text-muted hover:bg-tb-hover"}`}
-            >
-              {t.label} ({t.key === "all" ? tasks.length : t.key === "active" ? runningCount : doneCount})
-            </button>
-          ))}
-        </div>
-        <span className="text-dim text-[11px]">{fmt(totalSpeed)}/s</span>
+      <div className="tracer-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className={`tracer-tab ${filter === t.key ? "active" : ""}`}
+          >
+            {t.label} <span>{t.key === "all" ? tasks.length : t.key === "active" ? runningCount : doneCount}</span>
+          </button>
+        ))}
+        <div className="tracer-tab-spacer" />
+        <span className="tracer-summary">{fmt(totalSpeed)}/s</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col gap-2">
-        {filtered.length === 0 && <div className="text-muted text-[11px] p-4 text-center">No downloads to show.</div>}
+      <div className="tracer-list flex-1">
+        {filtered.length === 0 && <div className="trace-empty">No downloads to show.</div>}
         {filtered.map((t) => {
           const size = Number(t.size || 0);
           const received = Number(t.receivedBytes || 0);
@@ -107,32 +109,32 @@ export default function TracerPanel() {
           const segments = t.segmentCount ?? "—";
 
           return (
-            <div key={t.id} className="rounded border border-border bg-panel2 p-2 flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className={`flex h-5 w-5 items-center justify-center rounded ${STATE_STYLES[state]}`}>
-                  <Icon size={12} />
+            <div key={t.id} className="tracer-item">
+              <div className="tracer-item-top">
+                <span className={`trace-state-icon ${STATE_CLASS[state]}`}>
+                  <Icon size={16} />
                 </span>
-                <span className="flex-1 truncate text-[12px]">{displayName(t)}</span>
-                <span className="text-dim text-[11px]">{speed > 0 ? fmt(speed) + "/s" : "—"}</span>
+                <span className="tracer-item-name">{displayName(t)}</span>
+                <span className="tracer-item-rate">{speed > 0 ? fmt(speed) + "/s" : "—"}</span>
               </div>
-              <div className="text-dim text-[10px] pl-7">
+              <div className="tracer-item-meta">
                 {received > 0 ? fmt(received) : "0 B"} · {size > 0 ? fmt(size) : "size unknown"} · {state}
               </div>
-              <div className="text-dim text-[10px] pl-7">
+              <div className="tracer-item-meta">
                 {isActive ? `ETA ${eta}` : t.status === "failed" ? "download failed" : state} · {segments} segs
               </div>
-              <div className="h-1 rounded bg-panel overflow-hidden">
-                <div className={`h-full ${STATE_STYLES[state].split(" ")[0].replace("text-", "bg-")}`} style={{ width: `${pct}%` }} />
+              <div className="tracer-progress">
+                <div className={`tracer-progress-fill ${STATE_CLASS[state]}`} style={{ width: `${pct}%` }} />
               </div>
-              <div className="flex items-center justify-between pl-7">
-                <span className="truncate text-dim text-[10px] max-w-[70%]">
+              <div className="tracer-item-footer">
+                <span>
                   {t.outputPath ? "saved to " + t.outputPath : "source: " + (t.url || "").slice(0, 48)}
                 </span>
                 {(isActive || isPaused) && (
-                  <span className="flex gap-1">
-                    {isActive && <button onClick={() => act("pause", t.id)} className="rounded p-1 hover:bg-tb-hover" title="Pause"><PauseIcon size={12} /></button>}
-                    {isPaused && <button onClick={() => act("resume", t.id)} className="rounded p-1 hover:bg-tb-hover" title="Resume"><Play size={12} /></button>}
-                    <button onClick={() => act("stop", t.id)} className="rounded p-1 hover:bg-tb-hover" title="Stop"><Square size={12} /></button>
+                  <span className="tracer-item-actions">
+                    {isActive && <button onClick={() => act("pause", t.id)} className="trace-action" title="Pause"><PauseIcon size={11} /></button>}
+                    {isPaused && <button onClick={() => act("resume", t.id)} className="trace-action" title="Resume"><Play size={11} /></button>}
+                    <button onClick={() => act("stop", t.id)} className="trace-action" title="Stop"><Square size={11} /></button>
                   </span>
                 )}
               </div>

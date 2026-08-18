@@ -11,17 +11,17 @@ export default function PanelChrome({ title, panelName, onClose, children }) {
   return (
     <div className="flex h-screen w-screen flex-col bg-bg text-text overflow-hidden">
       <div
-        className="panel-drag-handle flex items-center justify-between border-b border-border bg-toolbar px-3 py-2 shrink-0"
+        className="panel-drag-handle dialog-titlebar flex items-center gap-2 border-b border-border bg-panel2 px-3.5 py-2.5 shrink-0"
         onPointerDown={(e) => { if (e.button === 0 && e.target === e.currentTarget) startDrag(); }}
       >
-        <div className="flex items-center gap-2 text-[13px] font-semibold pointer-events-none">
-          <span className="inline-block h-4 w-4 rounded-full bg-panel2" />
+        <span className="dialog-title-icon inline-block h-4 w-4 rounded-full bg-panel2 pointer-events-none" />
+        <div className="dialog-title-text text-[11px] font-bold uppercase tracking-[.12em] pointer-events-none">
           {title}
         </div>
         <button
           type="button"
           onClick={close}
-          className="rounded px-2 py-0.5 text-muted hover:bg-tb-hover hover:text-text"
+          className="dialog-close"
           aria-label="Close"
         >
           ✕

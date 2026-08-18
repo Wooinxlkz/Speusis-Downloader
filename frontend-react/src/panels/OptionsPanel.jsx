@@ -17,8 +17,9 @@ function Row({ label, children }) {
 
 function Toggle({ checked, onChange, children }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} className="accent-accent" />
+    <label className="toggle-wrap">
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="toggle-track" />
       {children}
     </label>
   );

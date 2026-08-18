@@ -4,20 +4,23 @@ import { buildMenuItems } from "../lib/menuItems";
 import { displayName, fmt, fmtTime, isMediaFile } from "../lib/format";
 import { api } from "../lib/tauri";
 
+// Exact colors from the old .st-* classes in dist/renderer/styles.css —
+// note running/completed are green (not blue), paused is yellow (not
+// orange), and queued/cancelled are slate (not yellow).
 const STATUS_STYLES = {
-  running: "text-blue-400 bg-blue-400/10",
-  queued: "text-yellow-400 bg-yellow-400/10",
-  paused: "text-orange-400 bg-orange-400/10",
-  completed: "text-green-400 bg-green-400/10",
-  failed: "text-red-400 bg-red-400/10",
-  cancelled: "text-dim bg-dim/10",
+  running: { color: "#6ee7b7", background: "rgba(110,231,183,.14)" },
+  paused: { color: "#fcd34d", background: "rgba(252,211,77,.13)" },
+  queued: { color: "#94a3b8", background: "rgba(148,163,184,.11)" },
+  completed: { color: "#86efac", background: "rgba(134,239,172,.12)" },
+  failed: { color: "#f87171", background: "rgba(248,113,113,.12)" },
+  cancelled: { color: "#94a3b8", background: "rgba(148,163,184,.11)" },
 };
 const SCAN_STYLES = {
-  pending: ["Scanning", "text-blue-400 bg-blue-400/10"],
-  clean: ["Clean", "text-green-400 bg-green-400/10"],
-  "threats-found": ["Threat", "text-red-400 bg-red-400/10"],
-  failed: ["Scan failed", "text-red-400 bg-red-400/10"],
-  skipped: ["Not scanned", "text-dim bg-dim/10"],
+  pending: ["Scanning", { color: "#6ee7b7", background: "rgba(110,231,183,.14)" }],
+  clean: ["Clean", { color: "#86efac", background: "rgba(134,239,172,.12)" }],
+  "threats-found": ["Threat", { color: "#f87171", background: "rgba(248,113,113,.12)" }],
+  failed: ["Scan failed", { color: "#f87171", background: "rgba(248,113,113,.12)" }],
+  skipped: ["Not scanned", { color: "#94a3b8", background: "rgba(148,163,184,.11)" }],
 };
 
 export default function DownloadRow({ task, speed, selected, onSelect, onAction }) {
@@ -46,12 +49,10 @@ export default function DownloadRow({ task, speed, selected, onSelect, onAction 
       onClick={() => onSelect(task.id)}
       onContextMenu={onContextMenu}
       onDoubleClick={() => runAction(task.status === "completed" ? "open" : "properties")}
-      className={`grid items-center gap-2 border-b border-border/60 px-2 py-1.5 text-[12px] cursor-default ${
-        selected ? "bg-row-sel" : "hover:bg-row-hover"
-      }`}
+      className={`dl-row grid items-center gap-2 text-[12px] cursor-default ${selected ? "selected" : ""}`}
       style={{ gridTemplateColumns: "var(--tbl-cols)" }}
     >
-      <div className="flex flex-col min-w-0 gap-0.5">
+      <div className="dl-cell flex flex-col min-w-0 gap-0.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="shrink-0 rounded bg-panel2 px-1 text-[9px] uppercase text-dim">
             {name.split(".").pop()?.slice(0, 4) || "?"}
@@ -59,30 +60,30 @@ export default function DownloadRow({ task, speed, selected, onSelect, onAction 
           <span className="truncate" title={task.url}>{name}</span>
         </div>
         {task.status === "running" && (
-          <div className="h-1 w-full overflow-hidden rounded bg-panel2">
-            <div className="h-full bg-accent transition-[width]" style={{ width: `${pct}%` }} />
+          <div className="dl-prog-bar">
+            <div className="dl-prog-fill" style={{ width: `${pct}%` }} />
           </div>
         )}
       </div>
 
-      <div className="text-dim text-center">{task.kind === "torrent" ? "T" : ""}</div>
-      <div className="text-muted">{size ? fmt(size) : "—"}</div>
+      <div className="dl-cell dl-q">{task.kind === "torrent" ? "T" : ""}</div>
+      <div className="dl-cell dl-muted">{size ? fmt(size) : "—"}</div>
 
       <div className="flex flex-wrap gap-1">
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[task.status] || ""}`}>
+        <span className="st-badge" style={STATUS_STYLES[task.status]}>
           {task.status === "running" ? `${pct.toFixed(1)}%` : task.status}
         </span>
         {scan?.status && SCAN_STYLES[scan.status] && (
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${SCAN_STYLES[scan.status][1]}`}>
+          <span className="st-badge" style={SCAN_STYLES[scan.status][1]}>
             {SCAN_STYLES[scan.status][0]}
           </span>
         )}
       </div>
 
-      <div className="text-muted">{task.status === "running" ? fmtTime(eta) : "—"}</div>
-      <div className="text-muted">{task.status === "running" ? fmt(speed) + "/s" : "—"}</div>
+      <div className="dl-cell dl-muted">{task.status === "running" ? fmtTime(eta) : "—"}</div>
+      <div className="dl-cell dl-rate-value active">{task.status === "running" ? fmt(speed) + "/s" : "—"}</div>
 
-      <div className="flex justify-end">
+      <div className="dl-cell dl-actions flex justify-end">
         <ActionMenu items={items} onAction={runAction} />
       </div>
 

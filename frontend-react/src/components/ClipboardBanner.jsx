@@ -29,12 +29,13 @@ export default function ClipboardBanner({ onAdded }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border bg-panel2 px-3 py-1.5 text-[12px] shrink-0">
-      <span className="truncate" title={url}>Clipboard link detected: {url}</span>
-      <div className="flex gap-2 shrink-0">
-        <button className="rounded bg-accent text-bg px-2 py-1 font-semibold" onClick={add}>Add</button>
-        <button className="rounded px-2 py-1 text-muted hover:bg-tb-hover" onClick={() => setUrl(null)}>Dismiss</button>
+    <div className="clipboard-banner">
+      <div className="clipboard-message">
+        <span className="clipboard-label">Clipboard URL detected</span>
+        <span className="truncate" title={url}>{url}</span>
       </div>
+      <button className="clipboard-add" onClick={add}>Add download</button>
+      <button className="clipboard-dismiss" onClick={() => setUrl(null)}>Ignore</button>
     </div>
   );
 }
