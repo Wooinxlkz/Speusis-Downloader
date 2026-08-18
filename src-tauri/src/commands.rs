@@ -735,7 +735,10 @@ pub async fn dialog_choose_file(app: AppHandle, options: Option<ChooseFileOption
 
 #[tauri::command]
 pub fn app_get_version(app: AppHandle) -> String {
-    app.package_info().version.to_string()
+    // Cargo.toml must stay strict semver ("0.5.48") for `cargo build` and the
+    // update-checker's version comparison to keep working, so the "r" suffix
+    // the user wants for this build is appended for display only.
+    format!("{}r", app.package_info().version)
 }
 
 #[tauri::command]

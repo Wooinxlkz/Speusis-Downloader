@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/tauri";
 import { fmt } from "../lib/format";
 
@@ -14,8 +15,6 @@ export default function UpdateBanner() {
 
   useEffect(() => api.onUpdateAvailable(setInfo), []);
 
-  if (!info) return null;
-
   const download = async () => {
     setBusy(true);
     try {
@@ -29,16 +28,29 @@ export default function UpdateBanner() {
   };
 
   return (
-    <div id="updateBanner" className="visible">
-      <div className="ub-icon" />
-      <div className="ub-msg">
-        <span>Speusis <strong>{info.version}</strong> is available{info.downloadSize ? ` (${fmt(info.downloadSize)})` : ""}</span>
-        {info.notes && <span className="ub-notes">{info.notes}</span>}
-      </div>
-      <button disabled={busy} className="ub-btn" onClick={download}>
-        {busy ? "Adding…" : "Download Update"}
-      </button>
-      <button className="ub-dismiss" onClick={() => setInfo(null)}>Remind me later</button>
-    </div>
+    <AnimatePresence>
+      {info && (
+        <motion.div
+          id="updateBanner"
+          className="visible"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+        >
+          <div className="ub-icon" />
+          <div className="ub-msg">
+            <span>Speusis <strong>{info.version}</strong> is available{info.downloadSize ? ` (${fmt(info.downloadSize)})` : ""}</span>
+            {info.notes && <span className="ub-notes">{info.notes}</span>}
+          </div>
+          <motion.button whileHover={{ opacity: 0.85 }} whileTap={{ scale: 0.95 }} disabled={busy} className="ub-btn" onClick={download}>
+            {busy ? "Adding…" : "Download Update"}
+          </motion.button>
+          <motion.button whileHover={{ opacity: 0.85 }} whileTap={{ scale: 0.95 }} className="ub-dismiss" onClick={() => setInfo(null)}>
+            Remind me later
+          </motion.button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

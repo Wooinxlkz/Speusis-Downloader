@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { MoreHorizontal } from "lucide-react";
 
 export default function ActionMenu({ items, onAction }) {
@@ -35,42 +36,53 @@ export default function ActionMenu({ items, onAction }) {
 
   return (
     <span className="relative inline-block">
-      <button
+      <motion.button
         ref={btnRef}
         type="button"
         title="More actions"
         aria-label="More actions"
         aria-expanded={open}
+        whileHover={{ background: "var(--tb-hover)" }}
+        whileTap={{ scale: 0.9 }}
+        transition={{ duration: 0.1 }}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="flex h-6 w-6 items-center justify-center rounded hover:bg-tb-hover"
+        className="flex h-6 w-6 items-center justify-center rounded"
       >
         <MoreHorizontal size={14} />
-      </button>
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          style={{ position: "fixed", top: pos.top, left: pos.left, visibility: pos.left === 0 && pos.top === 0 ? "hidden" : "visible" }}
-          className="z-[720] min-w-[190px] rounded border border-border bg-menu-bg py-1 shadow-lg"
-        >
-          {items.map((item, i) =>
-            item.sep ? (
-              <div key={i} className="my-1 h-px bg-border" />
-            ) : (
-              <button
-                key={item.action}
-                disabled={item.disabled}
-                onClick={() => { setOpen(false); onAction(item.action); }}
-                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] ${
-                  item.disabled ? "text-dim cursor-not-allowed" : "text-text hover:bg-tb-hover"
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          )}
-        </div>
-      )}
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={menuRef}
+            role="menu"
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.1, ease: "easeOut" }}
+            style={{ position: "fixed", top: pos.top, left: pos.left, visibility: pos.left === 0 && pos.top === 0 ? "hidden" : "visible" }}
+            className="z-[720] min-w-[190px] rounded border border-border bg-menu-bg py-1 shadow-lg"
+          >
+            {items.map((item, i) =>
+              item.sep ? (
+                <div key={i} className="my-1 h-px bg-border" />
+              ) : (
+                <motion.button
+                  key={item.action}
+                  disabled={item.disabled}
+                  whileHover={item.disabled ? {} : { background: item.danger ? "rgba(248,113,113,.15)" : "var(--tb-hover)" }}
+                  transition={{ duration: 0.08 }}
+                  onClick={() => { setOpen(false); onAction(item.action); }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] ${
+                    item.disabled ? "text-dim cursor-not-allowed" : item.danger ? "ctx-danger" : "text-text"
+                  }`}
+                >
+                  {item.label}
+                </motion.button>
+              )
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </span>
   );
 }

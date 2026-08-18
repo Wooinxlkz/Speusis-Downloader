@@ -7,6 +7,7 @@ export default function CreateTorrentPanel() {
   const [tracker, setTracker] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState("");
+  const [ok, setOk] = useState(false);
 
   const browse = async () => {
     const path = await api.chooseFile({ directory: false });
@@ -19,8 +20,10 @@ export default function CreateTorrentPanel() {
     try {
       const outDir = source.substring(0, Math.max(source.lastIndexOf("/"), source.lastIndexOf("\\")));
       const path = await api.createTorrent(source.trim(), outDir, name.trim() || undefined, tracker.trim() || undefined);
+      setOk(true);
       setResult("Created: " + path);
     } catch (e) {
+      setOk(false);
       setResult("Failed: " + String(e));
     } finally {
       setBusy(false);
@@ -39,7 +42,19 @@ export default function CreateTorrentPanel() {
       <input className="bg-panel2 border border-border rounded px-2 py-1.5" placeholder="Torrent name (auto-detected)" value={name} onChange={(e) => setName(e.target.value)} />
       <label className="text-muted text-[11px]">Tracker</label>
       <input className="bg-panel2 border border-border rounded px-2 py-1.5" placeholder="Custom tracker URL (optional)" value={tracker} onChange={(e) => setTracker(e.target.value)} />
-      {result && <div className="text-[11px] text-muted break-all">{result}</div>}
+      {result && (
+        <div
+          className={`torrent-status ${ok ? "ok" : "err"}`}
+          style={{
+            display: "block", margin: 0, padding: "8px 10px", borderRadius: 4, fontSize: 12, wordBreak: "break-all",
+            background: ok ? "rgba(134,239,172,.12)" : "rgba(248,113,113,.12)",
+            color: ok ? "#86efac" : "#f87171",
+            border: `1px solid ${ok ? "rgba(134,239,172,.24)" : "rgba(248,113,113,.24)"}`,
+          }}
+        >
+          {result}
+        </div>
+      )}
       <div className="flex justify-end gap-2 mt-2">
         <button className="rounded border border-border px-3 py-1.5 hover:bg-tb-hover" onClick={() => window.close()}>Close</button>
         <button disabled={busy || !source.trim()} className="rounded bg-accent text-bg px-3 py-1.5 font-semibold disabled:opacity-50" onClick={create}>

@@ -24,7 +24,7 @@ export function buildMenuItems({ status, kind, isMedia }) {
   items.push({ action: "stop", label: "Stop Download", disabled: !isActive });
   items.push({ action: "refreshurl", label: "Refresh download address" });
   items.push({ sep: true });
-  items.push({ action: "delete", label: "Delete" });
+  items.push({ action: "delete", label: "Delete", danger: true });
   items.push({ sep: true });
   items.push({ action: "addqueue", label: "Add to queue" });
   if (kind === "torrent") items.push({ action: "torrent-files", label: "Torrent files" });

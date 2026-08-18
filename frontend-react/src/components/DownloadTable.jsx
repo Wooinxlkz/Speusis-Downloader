@@ -14,7 +14,7 @@ export default function DownloadTable({ tasks, speeds, selectedId, onSelect, onA
   const onHandleDown = (index, e) => {
     e.preventDefault();
     dragRef.current = { index, startX: e.clientX, startWidth: e.currentTarget.parentElement.getBoundingClientRect().width };
-    document.body.classList.add("select-none");
+    document.body.classList.add("select-none", "tbl-column-resizing");
     window.addEventListener("pointermove", onHandleMove);
     window.addEventListener("pointerup", onHandleUp);
   };
@@ -30,7 +30,7 @@ export default function DownloadTable({ tasks, speeds, selectedId, onSelect, onA
   };
   const onHandleUp = () => {
     dragRef.current = null;
-    document.body.classList.remove("select-none");
+    document.body.classList.remove("select-none", "tbl-column-resizing");
     window.removeEventListener("pointermove", onHandleMove);
     window.removeEventListener("pointerup", onHandleUp);
     setWidths((prev) => { saveColumnWidths(prev); return prev; });

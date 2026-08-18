@@ -8,7 +8,7 @@ function TimeSelect({ hour, minute, onHour, onMinute }) {
       </select>
       :
       <select className="bg-panel2 border border-border rounded px-2 py-1" value={minute} onChange={(e) => onMinute(Number(e.target.value))}>
-        {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{String(m).padStart(2, "0")}</option>)}
+        {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => <option key={m} value={m}>{String(m).padStart(2, "0")}</option>)}
       </select>
     </div>
   );

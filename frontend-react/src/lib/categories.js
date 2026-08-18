@@ -26,6 +26,7 @@ export function taskMatchFilter(task, filter, displayNameFn) {
   if (filter === "finished") return task.status === "completed";
   if (filter === "unfinished") return ["running", "paused", "queued", "failed"].includes(task.status);
   if (filter === "queued") return task.status === "queued";
+  if (filter.startsWith("lbl:")) return task.label === filter.slice(4);
   const name = displayNameFn(task);
   return CAT_EXT[filter]?.test(name) ?? true;
 }
