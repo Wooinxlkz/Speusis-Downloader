@@ -1,11 +1,11 @@
-# Speusis Downloader v0.5.48r — Tauri/Rust Desktop Download Manager
+# Speusis Downloader v0.5.49r — Tauri/Rust Desktop Download Manager
 
 A full-featured Tauri v2 / Rust port of Speusis Downloader with real implementations of every
 major subsystem — no stubs, no placeholder commands.
 
 ---
 
-## What's implemented in v0.5.48r
+## What's implemented in v0.5.49r
 
 | Module | Status | Notes |
 |---|---|---|
@@ -105,7 +105,7 @@ running" only when the desktop app is actually open.
 
 ## Renderer / frontend
 
-The v0.5.48r renderer lives in `frontend-react/`. It keeps the React component
+The v0.5.49r renderer lives in `frontend-react/`. It keeps the React component
 structure from v0.5.46, restores the legacy menu, speed graph, settings fields,
 panel styling, and interaction states from the original renderer, and keeps the
 Tauri bridge connected to the existing Rust commands. The older renderer files

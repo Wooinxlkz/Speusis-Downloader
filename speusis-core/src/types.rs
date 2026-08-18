@@ -210,7 +210,7 @@ impl AppSettings {
             allow_invalid_tls: false,
             seed_ratio: 1.0,
             theme_mode: ThemeMode::System,
-            accent_color: AccentColor::Slate,
+            accent_color: AccentColor::Green,
             schedule_enabled: false,
             schedule_start_hour: 9,
             schedule_start_minute: 0,

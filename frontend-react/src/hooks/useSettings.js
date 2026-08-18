@@ -21,7 +21,7 @@ export function useSettings() {
     const sysDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
     const resolved = settings.themeMode === "system" ? (sysDark ? "dark" : "light") : settings.themeMode;
     document.body.dataset.theme = resolved || "dark";
-    document.body.dataset.accent = settings.accentColor || "slate";
+    document.body.dataset.accent = settings.accentColor || "green";
   }, [settings]);
 
   const update = useCallback(async (patch) => {

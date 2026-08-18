@@ -1,6 +1,6 @@
 {
   "name": "speusis-tauri",
-  "version": "0.5.48r",
+  "version": "0.5.49r",
   "private": true,
   "scripts": {
     "tauri": "tauri",

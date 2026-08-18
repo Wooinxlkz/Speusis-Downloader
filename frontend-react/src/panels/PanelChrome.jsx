@@ -1,42 +1,52 @@
 import { motion } from "framer-motion";
 import { startDrag, startResize, api } from "../lib/tauri";
+import { useSettings } from "../hooks/useSettings";
 
 const RESIZE_DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 export default function PanelChrome({ title, panelName, onClose, children }) {
+  // Every dialog window (Options, About, RSS, Properties, etc.) mounts
+  // through this one component - previously only the main window, Options,
+  // and Scheduler called useSettings(), so every other dialog never
+  // received data-theme/data-accent on its own <body> and stayed stuck on
+  // whatever the bare CSS defaults were, ignoring the user's light/dark and
+  // accent-color choice entirely. Calling it here fixes every dialog at once.
+  useSettings();
+
   const close = () => {
     onClose?.();
     api.closePanel(panelName).catch(() => {});
   };
 
   return (
-    <motion.div
-      className="flex h-screen w-screen flex-col bg-bg text-text overflow-hidden"
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
-    >
+    <div className="overlay-panel" style={{ position: "static", inset: "auto", background: "var(--bg)", padding: 12, overflow: "hidden", alignItems: "flex-start", backdropFilter: "none", animation: "none", height: "100vh", display: "flex", justifyContent: "center" }}>
       <div
-        className="panel-drag-handle dialog-titlebar flex items-center gap-2 border-b border-border bg-panel2 px-3.5 py-2.5 shrink-0"
-        onPointerDown={(e) => { if (e.button === 0 && e.target === e.currentTarget) startDrag(); }}
+        className="panel-box"
+        style={{ width: "100%", maxWidth: "none", maxHeight: "none" }}
       >
-        <span className="dialog-title-icon inline-block h-4 w-4 rounded-full bg-panel2 pointer-events-none" />
-        <div className="dialog-title-text text-[11px] font-bold uppercase tracking-[.12em] pointer-events-none">
-          {title}
-        </div>
-        <motion.button
-          type="button"
-          whileHover={{ background: "var(--tb-hover)" }}
-          whileTap={{ scale: 0.9 }}
-          onClick={close}
-          className="dialog-close"
-          aria-label="Close"
+        <div
+          className="panel-title dialog-titlebar panel-drag-handle"
+          onPointerDown={(e) => { if (e.button === 0 && e.target === e.currentTarget) startDrag(); }}
         >
-          ✕
-        </motion.button>
-      </div>
+          <img className="dialog-title-icon" src="/speusis-icon.png" alt="" draggable={false} />
+          <span className="dialog-title-text">{title}</span>
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={close}
+            className="dialog-close"
+            aria-label="Close dialog"
+            title="Close"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </motion.button>
+        </div>
 
-      <div className="flex-1 overflow-auto p-4">{children}</div>
+        <div className="flex-1 overflow-auto p-4">{children}</div>
+      </div>
 
       {RESIZE_DIRS.map((dir) => (
         <div
@@ -45,6 +55,6 @@ export default function PanelChrome({ title, panelName, onClose, children }) {
           onPointerDown={(e) => { if (e.button === 0) { e.preventDefault(); startResize(dir); } }}
         />
       ))}
-    </motion.div>
+    </div>
   );
 }

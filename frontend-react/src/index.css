@@ -22,8 +22,8 @@
   --text: #e8e8e8;
   --muted: #909090;
   --dim: #505050;
-  --accent: #e8e8e8;
-  --accent-hl: #c0c0c0;
+  --accent: #6ee7b7;
+  --accent-hl: #86efac;
   --shadow: 0 20px 60px rgba(0,0,0,0.7);
   --toolbar-bg: #191919;
   --tb-hover: #232323;
@@ -55,6 +55,7 @@ body[data-accent="blue"]   { --accent:#60a5fa; --accent-hl:#93c5fd; }
 body[data-accent="purple"] { --accent:#a78bfa; --accent-hl:#c4b5fd; }
 body[data-accent="orange"] { --accent:#fb923c; --accent-hl:#fcd34d; }
 body[data-accent="red"]    { --accent:#f87171; --accent-hl:#fca5a5; }
+body[data-accent="teal"]   { --accent:#22d3ee; --accent-hl:#67e8f9; }
 
 @theme {
   --color-bg: var(--bg);
