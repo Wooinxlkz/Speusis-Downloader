@@ -1,4 +1,13 @@
 @import "tailwindcss";
+@import "./legacy.css";
+
+.menu-wrap { position: relative; }
+.ctx-menu button.ctx-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
 
 /* Design tokens ported 1:1 from the old dist/renderer/styles.css so the
    app looks identical after the rewrite. Accent/theme are still applied

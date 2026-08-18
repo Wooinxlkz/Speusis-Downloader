@@ -122,6 +122,16 @@ export default function OptionsPanel() {
                 </button>
               </div>
             </Row>
+            <Row label="Temp directory">
+              <input
+                type="text"
+                className="flex-1 bg-panel2 border border-border rounded px-2 py-1"
+                placeholder="Leave empty to use the download folder"
+                value={settings.tempDir || ""}
+                onChange={(e) => set({ tempDir: e.target.value })}
+              />
+            </Row>
+            <Note>Temporary download parts use this folder when it is set.</Note>
           </>
         )}
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ActionMenu from "./ActionMenu";
 import { buildMenuItems } from "../lib/menuItems";
 import { displayName, fmt, fmtTime, isMediaFile } from "../lib/format";
@@ -99,17 +99,17 @@ export default function DownloadRow({ task, speed, selected, onSelect, onAction 
 }
 
 function RowContextMenu({ x, y, items, onClose, onAction }) {
-  useState(() => {
+  useEffect(() => {
     const close = () => onClose();
-    document.addEventListener("click", close, { once: true });
+    document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  });
+  }, [onClose]);
   const left = Math.min(x, window.innerWidth - 210);
   const top = Math.min(y, window.innerHeight - Math.min(items.length * 30, 400));
   return (
     <div
       style={{ position: "fixed", top, left }}
-      className="z-[730] min-w-[190px] rounded border border-border bg-menu-bg py-1 shadow-lg"
+      className="ctx-menu"
       onClick={(e) => e.stopPropagation()}
     >
       {items.map((item, i) =>
@@ -120,9 +120,7 @@ function RowContextMenu({ x, y, items, onClose, onAction }) {
             key={item.action}
             disabled={item.disabled}
             onClick={() => onAction(item.action)}
-            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] ${
-              item.disabled ? "text-dim cursor-not-allowed" : "text-text hover:bg-tb-hover"
-            }`}
+            className={`ctx-item ${item.disabled ? "ctx-grayed" : ""}`}
           >
             {item.label}
           </button>

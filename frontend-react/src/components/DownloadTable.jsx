@@ -57,10 +57,16 @@ export default function DownloadTable({ tasks, speeds, selectedId, onSelect, onA
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="download-list">
         {rows.length === 0 && (
-          <div className="flex h-full items-center justify-center text-dim text-[12px]">
-            No downloads yet — add a URL to get started.
+          <div className="empty-state">
+            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+              <circle cx="26" cy="26" r="24" stroke="var(--border)" strokeWidth="2" />
+              <path d="M26 14v14M18 22l8 8 8-8" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="16" y1="36" x2="36" y2="36" stroke="var(--muted)" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            <div className="empty-text">No downloads yet</div>
+            <div className="empty-sub">Click "Add URL" in the toolbar or let the extension capture links</div>
           </div>
         )}
         {rows.map((task) => (

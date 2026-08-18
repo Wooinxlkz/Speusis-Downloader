@@ -15,7 +15,9 @@ export default function BatchPanel() {
     setSelected(new Set(items.map((_, i) => i)));
   };
 
-  const filtered = links.filter((l) => !filter || l.url.toLowerCase().includes(filter.toLowerCase()) || l.name.toLowerCase().includes(filter.toLowerCase()));
+  const filtered = links
+    .map((link, index) => ({ link, index }))
+    .filter(({ link }) => !filter || link.url.toLowerCase().includes(filter.toLowerCase()) || link.name.toLowerCase().includes(filter.toLowerCase()));
 
   const toggle = (i) => setSelected((prev) => {
     const next = new Set(prev);
@@ -54,10 +56,10 @@ export default function BatchPanel() {
 
       <div className="flex-1 overflow-auto border border-border rounded mt-1">
         {filtered.length === 0 && <div className="text-muted text-[11px] p-3">No links loaded yet.</div>}
-        {filtered.map((l, i) => (
-          <label key={i} className="flex items-center gap-2 px-2 py-1 border-b border-border/50 hover:bg-tb-hover cursor-pointer">
-            <input type="checkbox" checked={selected.has(i)} onChange={() => toggle(i)} />
-            <span className="truncate text-[11px]">{l.name}</span>
+        {filtered.map(({ link, index }) => (
+          <label key={index} className="flex items-center gap-2 px-2 py-1 border-b border-border/50 hover:bg-tb-hover cursor-pointer">
+            <input type="checkbox" checked={selected.has(index)} onChange={() => toggle(index)} />
+            <span className="truncate text-[11px]">{link.name}</span>
           </label>
         ))}
       </div>

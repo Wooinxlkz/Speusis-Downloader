@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Toolbar from "./Toolbar";
+import MenuBar from "./MenuBar";
 import Sidebar from "./Sidebar";
 import DownloadTable from "./DownloadTable";
 import StatusBar from "./StatusBar";
+import SpeedGraph from "./SpeedGraph";
 import UpdateBanner from "./UpdateBanner";
 import ClipboardBanner from "./ClipboardBanner";
 import { useTasks } from "../hooks/useTasks";
@@ -18,6 +20,9 @@ export default function MainWindow() {
   const [selectedId, setSelectedId] = useState(null);
   const [statusText, setStatusText] = useState("Ready");
   const [version, setVersion] = useState("");
+  const [toolbarVisible, setToolbarVisible] = useState(true);
+  const [categoriesVisible, setCategoriesVisible] = useState(true);
+  const [speedGraphVisible, setSpeedGraphVisible] = useState(false);
 
   useEffect(() => { api.getVersion().then(setVersion).catch(() => {}); }, []);
 
@@ -39,13 +44,9 @@ export default function MainWindow() {
   // stale, empty task list, silently breaking "Resume All"/"Stop All" from
   // the tray after the very first render.
   const bulkActionRef = useRef(() => {});
+  const menuActionRef = useRef(() => {});
   useEffect(() => api.onMenuCommand((command) => {
-    if (command === "add-url") api.openPanel("addUrlPanel");
-    else if (command === "resume-all") bulkActionRef.current("resumeAll");
-    else if (command === "stop-all") bulkActionRef.current("stopAll");
-    else if (command === "settings") api.openPanel("settingsPanel");
-    else if (command === "registration") api.openPanel("registrationPanel");
-    else if (command === "about") api.openPanel("aboutPanel");
+    menuActionRef.current(command);
   }), []);
 
   const filteredTasks = new Map(
@@ -192,15 +193,107 @@ export default function MainWindow() {
     }
   }, [tasks, selectedId, handleAction, removeTask]);
 
+  const handleMenuAction = useCallback(async (command) => {
+    switch (command) {
+      case "add-url":
+        await api.openPanel("addUrlPanel");
+        break;
+      case "open-torrent":
+        await api.addTorrentFile().catch(() => {});
+        break;
+      case "choose-dir": {
+        const dir = await api.chooseDownloadDir().catch(() => "");
+        if (dir) {
+          await api.updateSettings({ downloadDir: dir }).catch(() => {});
+          setStatusText("Download folder updated");
+        }
+        break;
+      }
+      case "resume-all":
+      case "start-queue":
+        await handleBulkAction("resumeAll");
+        break;
+      case "pause-selected":
+        await handleBulkAction("pause");
+        break;
+      case "stop-selected":
+        await handleBulkAction("stop");
+        break;
+      case "stop-all":
+        await handleBulkAction("stopAll");
+        break;
+      case "delete-selected":
+        await handleBulkAction("delete");
+        break;
+      case "delete-completed":
+        await handleBulkAction("deleteCompleted");
+        break;
+      case "stop-queue":
+        await handleBulkAction("stopQueued");
+        break;
+      case "toggle-toolbar":
+        setToolbarVisible((visible) => !visible);
+        break;
+      case "toggle-categories":
+        setCategoriesVisible((visible) => !visible);
+        break;
+      case "toggle-speed-graph":
+        setSpeedGraphVisible((visible) => !visible);
+        break;
+      case "settings":
+        await api.openPanel("settingsPanel");
+        break;
+      case "logins":
+        await api.openPanel("loginsPanel");
+        break;
+      case "scheduler":
+        await api.openPanel("schedulerPanel");
+        break;
+      case "rss":
+        await api.openPanel("rssPanel");
+        break;
+      case "web-grabber":
+        await api.openPanel("grabberPanel");
+        break;
+      case "basket":
+        await api.openBasket().catch(() => {});
+        break;
+      case "create-torrent":
+        await api.openPanel("createTorrentPanel");
+        break;
+      case "registration":
+        await api.openPanel("registrationPanel");
+        break;
+      case "help":
+        await api.openPanel("helpPanel");
+        break;
+      case "about":
+        await api.openPanel("aboutPanel");
+        break;
+      case "close-menu":
+      default:
+        break;
+    }
+  }, [handleBulkAction]);
+
   bulkActionRef.current = handleBulkAction;
+  menuActionRef.current = handleMenuAction;
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg text-text">
+      <MenuBar onAction={handleMenuAction} />
       <UpdateBanner />
       <ClipboardBanner onAdded={(fresh) => upsert(fresh.id, { ...fresh, createdAt: Date.now() })} />
-      <Toolbar selectedId={selectedId} tasks={tasks} onBulkAction={handleBulkAction} />
+      {toolbarVisible && <Toolbar selectedId={selectedId} tasks={tasks} onBulkAction={handleBulkAction} />}
+      {speedGraphVisible && <SpeedGraph speeds={speeds} />}
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar tasks={tasks} activeFilter={activeFilter} setActiveFilter={setActiveFilter} />
+        <Sidebar
+          visible={categoriesVisible}
+          onHide={() => setCategoriesVisible(false)}
+          tasks={tasks}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+        />
         <DownloadTable
           tasks={filteredTasks}
           speeds={speeds}
