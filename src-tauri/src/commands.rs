@@ -169,6 +169,26 @@ pub async fn download_resume(state: State<'_, AppState>, id: String) -> Result<O
     Ok(state.scheduler.resume(&id).await)
 }
 
+/// Live per-segment progress for the segment-map viewer. Reads the on-disk
+/// resume manifest that the downloader already writes as it works — returns
+/// `None` if the task isn't found or hasn't written a manifest yet (e.g.
+/// single-segment, queued, or already finished/moved to its final path).
+#[tauri::command]
+pub async fn download_segment_map(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<speusis_core::types::SegmentMapResponse>, String> {
+    let part_path = state
+        .scheduler
+        .list()
+        .await
+        .into_iter()
+        .find(|t| t.id == id)
+        .and_then(|t| t.part_path);
+    let Some(part_path) = part_path else { return Ok(None) };
+    Ok(speusis_core::file_manager::FileManager::read_segment_map(&part_path).await)
+}
+
 async fn find_task_path(state: &State<'_, AppState>, id: &str) -> Option<String> {
     state.scheduler.list().await.into_iter()
         .find(|t| t.id == id)
@@ -220,6 +240,89 @@ pub async fn download_streaming_url(_state: State<'_, AppState>, id: String) -> 
     // The streaming_server is started in main.rs on port 47811.
     // Supports HTTP Range requests so <video> and <audio> elements can seek.
     Ok(format!("http://127.0.0.1:47811/stream/{id}"))
+}
+
+// ---------- archive manager ----------
+//
+// v0.5.50: right-click a downloaded file -> Extract Here / Extract to... /
+// Add to Zip Archive..., backed by speusis_core::archive_manager. All three
+// operate on a completed download by task id (same `find_task_path` lookup
+// download_open_file etc. already use), and the extraction itself runs on
+// a blocking thread so a large archive can't stall the async runtime that
+// every other in-flight download is also using.
+
+#[tauri::command]
+pub fn archive_is_supported(path: String) -> bool {
+    speusis_core::archive_manager::is_supported_archive(&path)
+}
+
+#[tauri::command]
+pub async fn archive_extract_here(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<speusis_core::archive_manager::ExtractResult, String> {
+    let path = find_task_path(&state, &id)
+        .await
+        .ok_or_else(|| "File not found — it may not have finished downloading yet.".to_string())?;
+    let dest_dir = std::path::Path::new(&path)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Couldn't determine the archive's folder.".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || speusis_core::archive_manager::extract_archive(&path, &dest_dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn archive_extract_to(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<speusis_core::archive_manager::ExtractResult, String> {
+    let path = find_task_path(&state, &id)
+        .await
+        .ok_or_else(|| "File not found — it may not have finished downloading yet.".to_string())?;
+    use tauri_plugin_dialog::DialogExt;
+    let Some(dest_dir) = app.dialog().file().blocking_pick_folder().map(|f| f.to_string()) else {
+        return Err("No destination folder was chosen.".to_string());
+    };
+    tauri::async_runtime::spawn_blocking(move || speusis_core::archive_manager::extract_archive(&path, &dest_dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn archive_create_zip(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<String, String> {
+    let path = find_task_path(&state, &id)
+        .await
+        .ok_or_else(|| "File not found — it may not have finished downloading yet.".to_string())?;
+    use tauri_plugin_dialog::DialogExt;
+    let default_name = std::path::Path::new(&path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| format!("{s}.zip"))
+        .unwrap_or_else(|| "archive.zip".to_string());
+    let Some(output_path) = app
+        .dialog()
+        .file()
+        .set_file_name(&default_name)
+        .add_filter("ZIP archive", &["zip"])
+        .blocking_save_file()
+        .map(|f| f.to_string())
+    else {
+        return Err("No output location was chosen.".to_string());
+    };
+    let output_path_for_task = output_path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        speusis_core::archive_manager::create_zip(&[path], &output_path_for_task)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(output_path)
 }
 
 // ---------- plugins (discovery only - see speusis-core's plugin_manager.rs
@@ -467,6 +570,10 @@ fn native_panel_config(panel: &str) -> Option<(&'static str, f64, f64)> {
         "renameDialog" => ("Move / Rename", 480.0, 300.0),
         "propertiesDialog" => ("Download Properties", 520.0, 420.0),
         "deleteConfirmDialog" => ("Confirm Deletion", 520.0, 360.0),
+        "segmentMapDialog" => ("Segment Map", 340.0, 300.0),
+        "tracerPanel" => ("Download Trace", 380.0, 560.0),
+        "autoUpdateDialog" => ("Speusis Update", 480.0, 340.0),
+        "updateWarnDialog" => ("Speusis", 440.0, 260.0),
         _ => return None,
     })
 }
@@ -502,26 +609,18 @@ pub async fn panel_open(app: AppHandle, panel: String, id: Option<String>) -> Re
     .decorations(false)
     .always_on_top(true)
     .focused(true)
-    .visible(false)
     .build()
     .map_err(|e| e.to_string())?;
-
-    // Safety net: the window is built hidden and only shown once the
-    // frontend's ResizeObserver measures the real content and calls
-    // panel_resize (see app.js). If that never fires - empty panel, JS
-    // error, missing .panel-box - the window would stay invisible forever,
-    // so show it at the guessed size after a short grace period regardless.
-    let app_fallback = app.clone();
-    let label_fallback = label.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(700)).await;
-        if let Some(w) = app_fallback.get_webview_window(&label_fallback) {
-            if !w.is_visible().unwrap_or(true) {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
-        }
-    });
+    // Built immediately visible at its exact configured size from
+    // native_panel_config above - no hidden-then-measure-then-show dance.
+    // That was tried before specifically to fix these dialogs looking
+    // broken, but the frontend's ResizeObserver kept re-measuring shared
+    // index.html content (which differs by active tab, loaded fonts, etc.)
+    // and overwriting this already-correct size with a wrong one - that
+    // was the actual cause of the huge empty gaps. Removed the JS side of
+    // that loop too (installNativePanelSizing in app.js); manual resizing
+    // via the edge/corner grips is untouched since that's user-initiated,
+    // not automatic.
 
     Ok(())
 }
@@ -586,7 +685,7 @@ pub async fn settings_get(state: State<'_, AppState>) -> Result<speusis_core::ty
 /// that the download engine's sync closures read from - see state.rs doc
 /// comment for why there are two copies.
 #[tauri::command]
-pub async fn settings_update(state: State<'_, AppState>, patch: serde_json::Value) -> Result<speusis_core::types::AppSettings, String> {
+pub async fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: serde_json::Value) -> Result<speusis_core::types::AppSettings, String> {
     let updated = {
         let mut settings = state.settings.lock().await;
         settings.update(patch).await.map_err(|e| e.to_string())?.clone()
@@ -594,6 +693,13 @@ pub async fn settings_update(state: State<'_, AppState>, patch: serde_json::Valu
     if let Ok(mut snap) = state.settings_snapshot.write() {
         *snap = updated.clone();
     }
+    // Theme/accent changed here only ever applied to whichever window's own
+    // document.body triggered it - if that was a native panel window (e.g.
+    // Options), the main window (and every other open dialog) never saw the
+    // change at all, since each is a fully separate DOM. Broadcasting to
+    // every open window is what update-available already does for the same
+    // reason - same fix, same pattern.
+    let _ = app.emit("settings-updated", &updated);
     Ok(updated)
 }
 
@@ -618,21 +724,21 @@ pub async fn settings_set_auto_start(app: AppHandle, enabled: bool) -> Result<()
 }
 
 #[tauri::command]
-pub async fn settings_add_credential(state: State<'_, AppState>, cred: SiteCredential) -> Result<(), String> {
+pub async fn settings_add_credential(app: AppHandle, state: State<'_, AppState>, cred: SiteCredential) -> Result<(), String> {
     let mut current = state.settings.lock().await.get().credentials.clone();
     current.retain(|c| c.domain != cred.domain);
     current.push(cred);
     let patch = serde_json::json!({ "credentials": current });
-    settings_update(state, patch).await?;
+    settings_update(app, state, patch).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn settings_remove_credential(state: State<'_, AppState>, domain: String) -> Result<(), String> {
+pub async fn settings_remove_credential(app: AppHandle, state: State<'_, AppState>, domain: String) -> Result<(), String> {
     let mut current = state.settings.lock().await.get().credentials.clone();
     current.retain(|c| c.domain != domain);
     let patch = serde_json::json!({ "credentials": current });
-    settings_update(state, patch).await?;
+    settings_update(app, state, patch).await?;
     Ok(())
 }
 
@@ -729,6 +835,17 @@ pub async fn update_check(app: AppHandle) -> Result<speusis_core::update_checker
         let _ = app.emit_to("main", "update-available", info);
     }
     Ok(result)
+}
+
+/// Fetches whatever the automatic startup update check last found, if
+/// anything — used by the auto-update dialog, which (like every other
+/// dialog) opens as its own fresh native window and has no other way to
+/// see the payload the startup check emitted earlier in the main window.
+#[tauri::command]
+pub async fn update_get_pending(
+    state: State<'_, AppState>,
+) -> Result<Option<speusis_core::update_checker::UpdateInfo>, String> {
+    Ok(state.pending_update.read().map(|g| g.clone()).unwrap_or(None))
 }
 
 #[tauri::command]

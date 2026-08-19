@@ -22,12 +22,19 @@ window.downloadManager = {
   removeDownload: (id, deleteFromDisk = false) => invoke("download_remove", { id, deleteFromDisk }),
   pauseDownload: (id) => invoke("download_pause", { id }),
   resumeDownload: (id) => invoke("download_resume", { id }),
+  getSegmentMap: (id) => invoke("download_segment_map", { id }),
   addTorrentFile: () => invoke("download_add_torrent_file"),
   previewDownload: (id) => invoke("download_preview", { id }),
   getStreamingUrl: (id) => invoke("download_streaming_url", { id }),
   openFile: (id) => invoke("download_open_file", { id }),
   openFolder: (id) => invoke("download_open_folder", { id }),
   openWith: (id) => invoke("download_open_with", { id }),
+
+  // --- Archive Manager (v0.5.50) ---
+  archiveIsSupported: (path) => invoke("archive_is_supported", { path }),
+  archiveExtractHere: (id) => invoke("archive_extract_here", { id }),
+  archiveExtractTo: (id) => invoke("archive_extract_to", { id }),
+  archiveCreateZip: (id) => invoke("archive_create_zip", { id }),
 
   getTorrentFiles: (id) => invoke("torrent_get_files", { id }),
   selectTorrentFile: (id, fileIndex, selected) => invoke("torrent_select_file", { id, fileIndex, selected }),
@@ -91,10 +98,21 @@ window.downloadManager = {
   },
 
   checkForUpdate: () => invoke("update_check"),
+  getPendingUpdate: () => invoke("update_get_pending"),
   openUpdateDownload: (url) => invoke("update_open_download", { url }),
   onUpdateAvailable: (handler) => {
     let unlisten;
     listen("update-available", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
+    return () => unlisten && unlisten();
+  },
+  onStartupUpdateAvailable: (handler) => {
+    let unlisten;
+    listen("update-available-startup", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
+    return () => unlisten && unlisten();
+  },
+  onSettingsUpdated: (handler) => {
+    let unlisten;
+    listen("settings-updated", (event) => handler(event.payload)).then((fn) => (unlisten = fn));
     return () => unlisten && unlisten();
   },
 

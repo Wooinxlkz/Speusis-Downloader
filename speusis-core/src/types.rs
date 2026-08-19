@@ -183,6 +183,7 @@ pub struct AppSettings {
     pub file_type_routing: bool,
     pub ip_blocklist_url: String,
     pub max_retries: u32,
+    pub temp_dir: String,
 }
 
 impl AppSettings {
@@ -209,7 +210,7 @@ impl AppSettings {
             allow_invalid_tls: false,
             seed_ratio: 1.0,
             theme_mode: ThemeMode::System,
-            accent_color: AccentColor::Blue,
+            accent_color: AccentColor::Slate,
             schedule_enabled: false,
             schedule_start_hour: 9,
             schedule_start_minute: 0,
@@ -223,13 +224,35 @@ impl AppSettings {
             credentials: vec![],
             remote_access: false,
             scan_completed_files: true,
-            auto_start_with_system: false,
+            auto_start_with_system: true,
             minimize_to_tray: true,
-            file_type_routing: false,
+            file_type_routing: true,
             ip_blocklist_url: String::new(),
             max_retries: 5,
+            temp_dir: String::new(),
         }
     }
+}
+
+// ---- segment map (live per-segment progress, read from the resume manifest) ----
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentMapEntry {
+    pub index: u32,
+    pub start: u64,
+    pub end: u64,
+    pub received: u64,
+    pub done: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SegmentMapResponse {
+    pub total_segments: u32,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub segments: Vec<SegmentMapEntry>,
 }
 
 // ---- events.ts ----

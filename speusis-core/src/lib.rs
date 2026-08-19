@@ -18,3 +18,4 @@ pub mod streaming_server;
 pub mod license;
 pub mod listener;
 pub mod debug_log;
+pub mod archive_manager;

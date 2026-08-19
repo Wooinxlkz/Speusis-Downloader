@@ -29,6 +29,12 @@ use tokio::sync::Mutex;
 ///
 /// `pending_patch` stores the path of a downloaded update installer that
 /// `update_apply_patch` will invoke.
+///
+/// `pending_update` stores the most recent `UpdateInfo` found by either the
+/// manual "Check for Updates" flow or the automatic startup check, so the
+/// auto-update dialog (a separate native window, like every other panel)
+/// has something to fetch on open instead of needing the payload passed
+/// through the window-open call itself.
 pub struct AppState {
     pub scheduler: Arc<Scheduler>,
     pub settings: Arc<Mutex<SettingsManager>>,
@@ -39,4 +45,5 @@ pub struct AppState {
     pub torrent_manager: Arc<TorrentManager>,
     pub pending_patch: Mutex<Option<PathBuf>>,
     pub plugin_manager: Arc<PluginManager>,
+    pub pending_update: StdRwLock<Option<speusis_core::update_checker::UpdateInfo>>,
 }

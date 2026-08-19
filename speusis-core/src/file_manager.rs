@@ -91,10 +91,16 @@ impl FileManager {
         }
     }
 
-    /// Mirrors `finalize(partPath, finalPath)`.
+    /// Mirrors `finalize(partPath, finalPath)`. Handles the case where the
+    /// part file lives in a different directory than the final destination
+    /// (e.g. a configured temp dir) — `rename` fails across filesystems/
+    /// drives, so fall back to copy+remove when that happens.
     pub async fn finalize(&self, part_path: &str, final_path: &str) -> anyhow::Result<()> {
         self.close_file(part_path).await;
-        fs::rename(part_path, final_path).await?;
+        if fs::rename(part_path, final_path).await.is_err() {
+            fs::copy(part_path, final_path).await?;
+            fs::remove_file(part_path).await?;
+        }
         Ok(())
     }
 
@@ -136,6 +142,41 @@ impl FileManager {
         let mut hasher = Sha256::new();
         hasher.update(data);
         hex::encode(hasher.finalize())
+    }
+
+    /// Reads the live resume manifest for a `.part` file (if one exists yet)
+    /// and returns a per-segment progress snapshot for the segment-map UI.
+    /// Only cares about `size`/`segments` — other manifest fields are ignored.
+    pub async fn read_segment_map(part_path: &str) -> Option<crate::types::SegmentMapResponse> {
+        #[derive(serde::Deserialize)]
+        struct SegDto { start: u64, end: u64, received: u64 }
+        #[derive(serde::Deserialize)]
+        struct ManifestDto { size: u64, segments: Vec<SegDto> }
+
+        let resume_path = Self::get_resume_path(part_path);
+        let manifest = Self::read_json::<ManifestDto>(&resume_path).await?;
+        let downloaded_bytes: u64 = manifest.segments.iter().map(|s| s.received).sum();
+        let segments = manifest
+            .segments
+            .into_iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let len = s.end.saturating_sub(s.start) + 1;
+                crate::types::SegmentMapEntry {
+                    index: i as u32,
+                    start: s.start,
+                    end: s.end,
+                    received: s.received,
+                    done: s.received >= len,
+                }
+            })
+            .collect::<Vec<_>>();
+        Some(crate::types::SegmentMapResponse {
+            total_segments: segments.len() as u32,
+            downloaded_bytes,
+            total_bytes: manifest.size,
+            segments,
+        })
     }
 }
 

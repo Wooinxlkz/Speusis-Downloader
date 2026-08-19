@@ -1,5 +1,11 @@
-/* ─── Speusis v0.5.29 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.50 — Renderer ────────────────────────────────────── */
 "use strict";
+
+import { fmt, fmtSecs, displayName, escHtml, hexToRgba, fileTypeBadge, scanBadge, statusBadge, BTN_SVG } from "./utils.js";
+import { initConfigPanels } from "./panels-config.js";
+import { initTransferPanels } from "./panels-transfer.js";
+import { initMediaPlayer } from "./panels-media.js";
+import { initDialogs } from "./dialogs.js";
 
 const api = window.downloadManager;
 const nativePanelQuery = new URLSearchParams(window.location.search);
@@ -8,7 +14,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.29";
+let _appVersion = "0.5.50";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -45,6 +51,7 @@ const helpPanel       = document.getElementById("helpPanel");
 const registrationPanel = document.getElementById("registrationPanel");
 const grabberPanel    = document.getElementById("grabberPanel");
 const torrentFilesPanel = document.getElementById("torrentFilesPanel");
+const mediaPlayerPanel  = document.getElementById("mediaPlayerPanel");
 const dlForm          = document.getElementById("downloadForm");
 const urlInput        = document.getElementById("urlInput");
 const filenameInput   = document.getElementById("filenameInput");
@@ -52,6 +59,10 @@ const labelInput      = document.getElementById("labelInput");
 const ctxMenu         = document.getElementById("contextMenu");
 const renameDialog    = document.getElementById("renameDialog");
 const propertiesDialog= document.getElementById("propertiesDialog");
+const segmentMapDialog= document.getElementById("segmentMapDialog");
+const tracerPanel     = document.getElementById("tracerPanel");
+const autoUpdateDialog= document.getElementById("autoUpdateDialog");
+const updateWarnDialog= document.getElementById("updateWarnDialog");
 const deleteConfirmDialog = document.getElementById("deleteConfirmDialog");
 const catTree         = document.getElementById("catTree");
 const catPanel        = document.getElementById("catPanel");
@@ -67,6 +78,7 @@ const listenerPortEl    = document.getElementById("listenerPort");
 const remoteAccessEl    = document.getElementById("remoteAccess");
 const allowInvalidTlsEl = document.getElementById("allowInvalidTls");
 const seedRatioEl       = document.getElementById("seedRatio");
+const tempDirEl         = document.getElementById("tempDir");
 const menuDropdown    = document.getElementById("menuDropdown");
 const statTotal       = document.getElementById("statTotal");
 const statActive      = document.getElementById("statActive");
@@ -78,7 +90,7 @@ const speedChart      = document.getElementById("speedChart");
 const sgLabel         = document.getElementById("sgLabel");
 
 /* ── All panels (for closeAllPanels) ──────────────────────────── */
-const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel];
+const ALL_PANELS = [addUrlPanel, settingsPanel, schedulerPanel, loginsPanel, rssPanel, batchPanel, createTorrentPanel, aboutPanel, helpPanel, registrationPanel, renameDialog, propertiesDialog, deleteConfirmDialog, grabberPanel, torrentFilesPanel, mediaPlayerPanel, segmentMapDialog, tracerPanel, autoUpdateDialog, updateWarnDialog];
 
 /* ── Keyboard shortcuts ─────────────────────────────────────────── */
 document.addEventListener("keydown", e => {
@@ -106,11 +118,34 @@ function resetDialogPosition(panel) {
   box.classList.remove("is-dragging");
 }
 
+function stopPanelActivity(panel) {
+  if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll();
+  if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll();
+  // Pauses any <video>/<audio> left playing inside a panel that's being
+  // closed/hidden (e.g. clicking outside it, Escape, or switching to a
+  // different panel) — covers mediaPlayerPanel without a hardcoded
+  // reference to it, and is a no-op for every panel with no media in it.
+  panel?.querySelectorAll?.("video, audio").forEach(el => { el.pause(); });
+}
+
 function openPanel(panel, taskId) {
   if (!panel) return;
 
   if (!isNativePanelWindow) {
-    api.openPanel(panel.id, taskId).catch(() => {});
+    ALL_PANELS.forEach(other => {
+      if (other !== panel) {
+        stopPanelActivity(other);
+        other.classList.add("hidden");
+        other.setAttribute("aria-hidden", "true");
+        delete other.dataset.taskId;
+        resetDialogPosition(other);
+      }
+    });
+    resetDialogPosition(panel);
+    if (taskId) panel.dataset.taskId = taskId;
+    else delete panel.dataset.taskId;
+    panel.classList.remove("hidden");
+    panel.setAttribute("aria-hidden", "false");
     return;
   }
 
@@ -129,15 +164,21 @@ function closePanel(panel) {
   if (!panel) return;
 
   if (!isNativePanelWindow) {
-    api.closePanel(panel.id).catch(() => {});
+    stopPanelActivity(panel);
+    panel.classList.add("hidden");
+    panel.setAttribute("aria-hidden", "true");
+    delete panel.dataset.taskId;
+    resetDialogPosition(panel);
     return;
   }
   if (panel.id === nativePanelName) {
+    stopPanelActivity(panel);
     api.closePanel(panel.id).catch(() => {});
     return;
   }
 
   panel.classList.add("hidden");
+  stopPanelActivity(panel);
   panel.setAttribute("aria-hidden", "true");
   delete panel.dataset.taskId;
   resetDialogPosition(panel);
@@ -170,8 +211,10 @@ function prepareDialogHeaders() {
     handle.dataset.headerReady = "1";
     handle.classList.add("dialog-titlebar", "panel-drag-handle");
 
+    const existingClose = handle.querySelector(":scope > .dialog-close");
     const existingIcon = handle.querySelector(":scope > svg");
     if (existingIcon) existingIcon.remove();
+
     const icon = document.createElement("img");
     icon.className = "dialog-title-icon";
     icon.src = "./speusis-icon.png";
@@ -180,11 +223,13 @@ function prepareDialogHeaders() {
 
     const titleText = document.createElement("span");
     titleText.className = "dialog-title-text";
-    [...handle.childNodes].forEach(node => titleText.appendChild(node));
+    [...handle.childNodes].forEach(node => {
+      if (node !== existingClose) titleText.appendChild(node);
+    });
     handle.replaceChildren(icon, titleText);
 
-    const close = document.createElement("button");
-    close.className = "dialog-close";
+    const close = existingClose || document.createElement("button");
+    close.classList.add("dialog-close");
     close.type = "button";
     close.dataset.closePanel = panel.id;
     close.setAttribute("aria-label", "Close dialog");
@@ -209,15 +254,18 @@ function installDialogDragging() {
     const handle = box.querySelector(".panel-title, .delete-confirm-title");
     if (!handle || handle.dataset.dragReady === "1") return;
     handle.dataset.dragReady = "1";
+    handle.style.touchAction = "none";
     handle.addEventListener("pointerdown", event => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 || event.isPrimary === false) return;
       if (event.target.closest("button, a, input, select, textarea")) return;
       event.preventDefault();
 
       if (isNativePanelWindow) {
         const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
-        currentWindow?.startDragging?.().catch?.(() => {});
-        return;
+        if (currentWindow?.startDragging) {
+          Promise.resolve(currentWindow.startDragging()).catch(() => {});
+          return;
+        }
       }
 
       const rect = box.getBoundingClientRect();
@@ -258,14 +306,20 @@ function installDialogDragging() {
 }
 installDialogDragging();
 
+// Every window - main and every open dialog - keeps its own theme/accent in
+// sync now, instead of only whichever single window's Options dropdown you
+// happened to change it from.
+api.onSettingsUpdated?.(applyAppearance);
+
 /* ── Resizable download-list columns ───────────────────────────── */
 const tablePanel = document.querySelector(".table-panel");
 const tableHeader = tablePanel?.querySelector(".tbl-header");
-const columnStorageKey = "speusis.downloadTable.columnWidths";
+const columnStorageKey = "speusis.downloadTable.columnWidths.v2";
 const columnDefaults = [
-  "minmax(180px, 1fr)", "32px", "90px", "120px", "78px", "110px", "118px",
+  "minmax(220px, 1.8fr)", "38px", "minmax(84px, .7fr)", "minmax(150px, 1.1fr)",
+  "minmax(96px, .7fr)", "minmax(124px, 1fr)", "112px",
 ];
-const columnMinimums = [160, 28, 70, 90, 70, 90, 80];
+const columnMinimums = [190, 32, 78, 132, 88, 108, 112];
 let columnWidths = columnDefaults.map(() => null);
 
 try {
@@ -306,15 +360,21 @@ function installColumnResizing() {
 
       const startX = event.clientX;
       const startWidth = cell.getBoundingClientRect().width;
-      columnWidths[index] = Math.max(columnMinimums[index], Math.round(startWidth));
+        const otherMinimumWidth = columnWidths.reduce((sum, width, otherIndex) => (
+          otherIndex === index
+            ? sum
+            : sum + Math.max(columnMinimums[otherIndex], width || columnMinimums[otherIndex])
+        ), 0);
+        const maxWidth = Math.max(columnMinimums[index], tablePanel.clientWidth - otherMinimumWidth);
+        columnWidths[index] = Math.min(maxWidth, Math.max(columnMinimums[index], Math.round(startWidth)));
       applyColumnWidths();
       handle.setPointerCapture?.(event.pointerId);
       document.body.classList.add("tbl-column-resizing");
 
       const move = moveEvent => {
-        const nextWidth = Math.max(
-          columnMinimums[index],
-          Math.round(startWidth + moveEvent.clientX - startX),
+        const nextWidth = Math.min(
+          maxWidth,
+          Math.max(columnMinimums[index], Math.round(startWidth + moveEvent.clientX - startX)),
         );
         columnWidths[index] = nextWidth;
         applyColumnWidths();
@@ -339,67 +399,60 @@ function installColumnResizing() {
 installColumnResizing();
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
-function fmt(bytes) {
-  if (!bytes || bytes <= 0) return "0 B";
-  const u = ["B","KB","MB","GB","TB"];
-  const i = Math.min(u.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
-  return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 2)} ${u[i]}`;
-}
-
-function fmtSecs(s) {
-  if (!Number.isFinite(s) || s <= 0) return "—";
-  if (s < 60)   return `${Math.round(s)}s`;
-  if (s < 3600) return `${Math.floor(s/60)}m ${Math.round(s%60)}s`;
-  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
-}
-
-function displayName(t) {
-  return t.filename || t.outputPath?.split(/[\\/]/).pop() || t.url?.split("/").pop()?.split("?")[0] || "download";
-}
-
-function escHtml(v) {
-  return String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[c]);
-}
-
-/* ── File-type icon ──────────────────────────────────────────────── */
-const EXT_COLORS = {
-  zip:"#f59e0b",rar:"#f59e0b","7z":"#f59e0b",tar:"#f59e0b",gz:"#f59e0b",bz2:"#f59e0b",
-  pdf:"#ef4444",doc:"#3b82f6",docx:"#3b82f6",txt:"#94a3b8",
-  xls:"#22c55e",xlsx:"#22c55e",csv:"#22c55e",
-  mp3:"#a78bfa",flac:"#a78bfa",wav:"#a78bfa",aac:"#a78bfa",ogg:"#a78bfa",
-  mp4:"#ec4899",mkv:"#ec4899",avi:"#ec4899",mov:"#ec4899",wmv:"#ec4899",
-  exe:"#f97316",msi:"#f97316",dmg:"#f97316",apk:"#22c55e",
-  iso:"#64748b",img:"#64748b",
-  jpg:"#06b6d4",jpeg:"#06b6d4",png:"#06b6d4",gif:"#06b6d4",webp:"#06b6d4",svg:"#06b6d4",
-  m3u8:"#ec4899",mpd:"#a78bfa",ts:"#ec4899",
-  torrent:"#10b981",
-};
-
-function fileTypeBadge(name) {
-  const ext = (name || "").split(".").pop()?.toLowerCase() || "?";
-  const color = EXT_COLORS[ext] || "#6366f1";
-  const label = ext.slice(0, 4).toUpperCase();
-  return `<svg width="30" height="22" viewBox="0 0 30 22" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-    <rect width="30" height="22" rx="3" fill="${color}" opacity="0.82"/>
-    <text x="15" y="15.5" font-family="monospace,sans-serif" font-size="8.5" font-weight="700"
-          fill="white" text-anchor="middle">${label}</text>
-  </svg>`;
-}
+/* fmt, fmtSecs, displayName, escHtml, hexToRgba, fileTypeBadge,
+   scanBadge, statusBadge moved to ./utils.js (v0.5.43 split, Pass 1) */
 
 /* ── Row SVG action buttons ─────────────────────────────────────── */
-const BTN_SVG = {
-  play:    `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#3b82f6"/></svg>`,
-  pause:   `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="4" height="12" rx="1" fill="#fbbf24"/><rect x="12" y="4" width="4" height="12" rx="1" fill="#fbbf24"/></svg>`,
-  stop:    `<svg width="12" height="12" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#ef4444"/></svg>`,
-  retry:   `<svg width="12" height="12" viewBox="0 0 20 20"><path d="M4 10a6 6 0 106-6" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round"/><polyline points="4,5 4,10 9,10" stroke="#22c55e" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  del:     `<svg width="12" height="12" viewBox="0 0 20 20"><polyline points="3,6 17,6" stroke="#ef4444" stroke-width="1.8" fill="none"/><path d="M8 6V4h4v2M5 6l1 11h8l1-11" stroke="#ef4444" stroke-width="1.5" fill="none"/></svg>`,
-  preview: `<svg width="12" height="12" viewBox="0 0 20 20"><polygon points="4,3 17,10 4,17" fill="#ec4899"/></svg>`,
-};
+/* BTN_SVG moved to ./utils.js (v0.5.43 split, Pass 3) — imported above */
 
 const VIDEO_EXT = /\.(mp4|mkv|avi|mov|wmv|flv|webm|ts|m3u8|mpd|m4v)$/i;
 const AUDIO_EXT = /\.(mp3|flac|wav|aac|ogg|m4a|wma)$/i;
+// Archive Manager (v0.5.50) — kept in sync with speusis-core::archive_manager
+// ::detect_archive_kind. RAR/7z aren't extracted yet, so they're deliberately
+// left out here too (the menu items just won't show for those files).
+const ARCHIVE_EXT = /\.(zip|tar|tar\.gz|tgz)$/i;
+function isMediaName(name) { return VIDEO_EXT.test(name || "") || AUDIO_EXT.test(name || ""); }
+function isArchiveName(name) { return ARCHIVE_EXT.test(name || ""); }
 
-function buildActionButtons(status, taskName) {
+function actionMenuMarkup(status, kind, taskName) {
+  if (!ctxMenu) return "";
+  const isDone = status === "completed";
+  const isActive = ["running", "queued"].includes(status);
+  const isPlayable = ["running", "paused", "completed"].includes(status);
+  const isPausedOrFailed = ["paused", "failed", "cancelled"].includes(status);
+  const isMedia = isMediaName(taskName);
+  const isArchive = isArchiveName(taskName);
+  // Items hidden outright (wrong file type / kind for this row) rather than
+  // just grayed — same convention torrent-files already used.
+  const irrelevant = action => (
+    (action === "torrent-files" && kind !== "torrent") ||
+    (action === "play" && !isMedia) ||
+    (["extract-here", "extract-to"].includes(action) && !isArchive) ||
+    (action === "create-zip" && !isDone)
+  );
+  const disabled = action => (
+    (["open", "openwith", "openfolder"].includes(action) && !isDone && !isActive) ||
+    (action === "resume" && !isPausedOrFailed) ||
+    (["pause", "stop"].includes(action) && !isActive) ||
+    (action === "play" && !isPlayable) ||
+    (["extract-here", "extract-to"].includes(action) && !isDone)
+  );
+
+  return [...ctxMenu.children].map(source => {
+    if (source.classList.contains("ctx-sep")) {
+      return source.id === "ctxArchiveSep" ? (isArchive ? source.outerHTML.replace(" hidden", "") : "") : source.outerHTML;
+    }
+    if (!source.classList.contains("ctx-item")) return "";
+    const action = source.dataset.action;
+    if (irrelevant(action)) return "";
+    const item = source.cloneNode(true);
+    item.removeAttribute("id");
+    item.className = `row-menu-item${disabled(action) ? " ctx-grayed" : ""}`;
+    return item.outerHTML;
+  }).join("");
+}
+
+function buildActionButtons(status, taskName, kind) {
   const b = [];
   const isMedia = VIDEO_EXT.test(taskName || "") || AUDIO_EXT.test(taskName || "");
   if (status === "running") {
@@ -414,54 +467,71 @@ function buildActionButtons(status, taskName) {
     b.push(`<button class="row-btn rb-stop" data-action="stop" title="Cancel">${BTN_SVG.stop}</button>`);
   } else if (status === "completed") {
     if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
-    b.push(`<button class="row-btn rb-retry" data-action="redownload" title="Re-download">${BTN_SVG.retry}</button>`);
-  } else {
-    b.push(`<button class="row-btn rb-retry" data-action="redownload" title="Re-download">${BTN_SVG.retry}</button>`);
   }
-  b.push(`<button class="row-btn rb-del" data-action="delete" title="Delete">${BTN_SVG.del}</button>`);
-  return b.join("");
+  // Delete and Re-download used to be their own standalone icons alongside
+  // the 3-dot menu (3 icons total for a completed row). Folded into the
+  // dropdown instead, so the row only ever shows the "..." button plus
+  // whichever transfer-control buttons (pause/stop/resume/preview) are
+  // actually relevant to the current status.
+
+  return `${b.join("")}
+    <span class="row-action-menu">
+      <button class="row-more" type="button" title="More actions" aria-label="More actions" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+          <circle cx="16" cy="10" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+      <span class="row-action-dropdown hidden" role="menu">${actionMenuMarkup(status, kind, taskName)}</span>
+    </span>`;
 }
 
-function scanBadge(scan) {
-  if (!scan?.status) return "";
-  const labels = {
-    pending: ["st-running", "Scanning"],
-    clean: ["st-completed", "Clean"],
-    "threats-found": ["st-failed", "Threat"],
-    failed: ["st-failed", "Scan failed"],
-    skipped: ["st-paused", "Not scanned"],
-  };
-  const [cls, label] = labels[scan.status] || ["st-paused", scan.status];
-  const title = scan.message ? ` title="${escHtml(scan.message)}"` : "";
-  return ` <span class="st-badge ${cls}"${title}>${label}</span>`;
+function closeRowActionMenus(except = null) {
+  document.querySelectorAll(".row-action-dropdown:not(.hidden)").forEach(menu => {
+    if (menu !== except) {
+      menu.classList.add("hidden");
+      menu.previousElementSibling?.setAttribute("aria-expanded", "false");
+    }
+  });
 }
 
-function statusBadge(task) {
-  const status = task?.status;
-  const map = {
-    running:   ["st-running",   "Downloading"],
-    completed: ["st-completed", "Complete"],
-    paused:    ["st-paused",    "Paused"],
-    queued:    ["st-queued",    "Queued"],
-    failed:    ["st-failed",    "Failed"],
-    cancelled: ["st-cancelled", "Cancelled"],
-  };
-  const [cls, label] = map[status] || ["st-queued", status || "Unknown"];
-  return `<span class="st-badge ${cls}">${label}</span>${scanBadge(task?.securityScan)}`;
+function positionRowActionMenu(more, menu) {
+  if (!more || !menu) return;
+  const rect = more.getBoundingClientRect();
+  // Switch to fixed positioning FIRST, then measure. Reading offsetWidth
+  // before this was the actual bug: it measured the menu while it was
+  // still laid out under its default (non-fixed) CSS positioning, which
+  // gives a different, unreliable width depending on that particular row's
+  // surrounding layout - so every placement calculation below was already
+  // working from a wrong number, which is why it looked like it opened in
+  // a different, inconsistent place depending on the row.
+  menu.style.position = "fixed";
+  menu.style.right = "auto";
+  const menuWidth = menu.offsetWidth || 236;
+  const preferredLeft = rect.left;
+  const left = preferredLeft + menuWidth <= window.innerWidth - 8
+    ? preferredLeft
+    : rect.right - menuWidth;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menuWidth - 8, left))}px`;
+  menu.style.top = `${Math.min(window.innerHeight - 12, rect.bottom + 6)}px`;
+  if (rect.bottom + 6 + menu.offsetHeight > window.innerHeight) {
+    menu.style.top = `${Math.max(8, rect.top - menu.offsetHeight - 6)}px`;
+  }
 }
 
 /* ── Category config ────────────────────────────────────────────── */
 const CAT_SVGS = {
-  all:        `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#3b82f6"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#3b82f6"/></svg>`,
-  compressed: `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="#f59e0b" stroke-width="1.3"/><line x1="5" y1="1" x2="5" y2="13" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="4" x2="9" y2="4" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="7" x2="9" y2="7" stroke="#f59e0b" stroke-width="1.2"/><line x1="5" y1="10" x2="9" y2="10" stroke="#f59e0b" stroke-width="1.2"/></svg>`,
-  documents:  `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 3v7H2V2z" fill="none" stroke="#3b82f6" stroke-width="1.3"/><path d="M9 2v3h3" stroke="#3b82f6" stroke-width="1.2" fill="none"/><line x1="4" y1="7" x2="10" y2="7" stroke="#3b82f6" stroke-width="1.1"/><line x1="4" y1="9.5" x2="10" y2="9.5" stroke="#3b82f6" stroke-width="1.1"/></svg>`,
+  all:        `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="8" y="1" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="1" y="8" width="5" height="5" rx="1" fill="#60a5fa"/><rect x="8" y="8" width="5" height="5" rx="1" fill="#60a5fa"/></svg>`,
+  compressed: `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="none" stroke="#fb923c" stroke-width="1.3"/><line x1="5" y1="1" x2="5" y2="13" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="4" x2="9" y2="4" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="7" x2="9" y2="7" stroke="#fb923c" stroke-width="1.2"/><line x1="5" y1="10" x2="9" y2="10" stroke="#fb923c" stroke-width="1.2"/></svg>`,
+  documents:  `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 3v7H2V2z" fill="none" stroke="#60a5fa" stroke-width="1.3"/><path d="M9 2v3h3" stroke="#60a5fa" stroke-width="1.2" fill="none"/><line x1="4" y1="7" x2="10" y2="7" stroke="#60a5fa" stroke-width="1.1"/><line x1="4" y1="9.5" x2="10" y2="9.5" stroke="#60a5fa" stroke-width="1.1"/></svg>`,
   music:      `<svg class="cat-ico" viewBox="0 0 14 14"><path d="M5 11V3l7-2v8" stroke="#a78bfa" stroke-width="1.3" fill="none" stroke-linecap="round"/><circle cx="4" cy="11" r="2" fill="#a78bfa" opacity="0.8"/><circle cx="11" cy="9" r="2" fill="#a78bfa" opacity="0.8"/></svg>`,
-  programs:   `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="none" stroke="#f97316" stroke-width="1.3"/><polyline points="4.5,7 6.5,5 8.5,7 10,5.5" stroke="#f97316" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  video:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="3" width="9" height="8" rx="1.5" fill="none" stroke="#ec4899" stroke-width="1.3"/><path d="M10 5.5l3-2v7l-3-2V5.5z" fill="#ec4899" opacity="0.8"/></svg>`,
-  unfinished: `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#fbbf24" stroke-width="1.3"/><polyline points="7,3.5 7,7 9.5,9" stroke="#fbbf24" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`,
-  finished:   `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#22c55e" stroke-width="1.3"/><polyline points="4,7 6,9 10,5" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  programs:   `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="none" stroke="#fb923c" stroke-width="1.3"/><polyline points="4.5,7 6.5,5 8.5,7 10,5.5" stroke="#fb923c" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  video:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="3" width="9" height="8" rx="1.5" fill="none" stroke="#f472b6" stroke-width="1.3"/><path d="M10 5.5l3-2v7l-3-2V5.5z" fill="#f472b6" opacity="0.8"/></svg>`,
+  unfinished: `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#fcd34d" stroke-width="1.3"/><polyline points="7,3.5 7,7 9.5,9" stroke="#fcd34d" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`,
+  finished:   `<svg class="cat-ico" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#86efac" stroke-width="1.3"/><polyline points="4,7 6,9 10,5" stroke="#86efac" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   queued:     `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="1" y="6" width="12" height="2.5" rx="1.2" fill="#94a3b8"/><rect x="1" y="10" width="8"  height="2.5" rx="1.2" fill="#94a3b8"/></svg>`,
-  drive:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="4" width="12" height="6" rx="2" fill="none" stroke="#64748b" stroke-width="1.3"/><circle cx="10.5" cy="7" r="1.2" fill="#64748b"/></svg>`,
+  drive:      `<svg class="cat-ico" viewBox="0 0 14 14"><rect x="1" y="4" width="12" height="6" rx="2" fill="none" stroke="#909090" stroke-width="1.3"/><circle cx="10.5" cy="7" r="1.2" fill="#909090"/></svg>`,
 };
 
 const CAT_EXT = {
@@ -533,7 +603,7 @@ async function buildCatTree() {
       const count = countByFilter(filter);
       const active = activeFilter === filter ? " active" : "";
       html += `<div class="cat-node${active}" data-filter="${escHtml(filter)}">
-        <svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 5-3 5H2V2z" fill="none" stroke="#93c5fd" stroke-width="1.3"/></svg>
+        <svg class="cat-ico" viewBox="0 0 14 14"><path d="M2 2h7l3 5-3 5H2V2z" fill="none" stroke="#60a5fa" stroke-width="1.3"/></svg>
         <span class="cat-label">${escHtml(lbl)}</span>
         ${count > 0 ? `<span class="cat-count">${count}</span>` : ""}
       </div>`;
@@ -653,9 +723,29 @@ function upsertRow(task) {
     row.dataset.scan = scanKey;
     row.querySelector('[data-role="status"]').innerHTML = statusBadge(t);
     const actions = row.querySelector('[data-role="actions"]');
-    actions.innerHTML = buildActionButtons(t.status, name);
+    actions.innerHTML = buildActionButtons(t.status, name, t.kind);
     actions.querySelectorAll(".row-btn").forEach(btn => {
       btn.addEventListener("click", e => { e.stopPropagation(); handleRowAction(task.id, btn.dataset.action); });
+    });
+    const more = actions.querySelector(".row-more");
+    const menu = actions.querySelector(".row-action-dropdown");
+    more?.addEventListener("click", e => {
+      e.stopPropagation();
+      const shouldOpen = menu?.classList.contains("hidden");
+      closeRowActionMenus(menu);
+      if (menu && shouldOpen) {
+        menu.classList.remove("hidden");
+        more.setAttribute("aria-expanded", "true");
+        positionRowActionMenu(more, menu);
+      }
+    });
+    actions.querySelectorAll(".row-menu-item").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        if (btn.classList.contains("ctx-grayed")) return;
+        closeRowActionMenus();
+        handleRowAction(task.id, btn.dataset.action);
+      });
     });
   }
 
@@ -755,12 +845,43 @@ async function handleRowAction(id, action) {
       if (task.url) navigator.clipboard?.writeText(task.url);
       setStatus("URL copied to clipboard"); break;
     }
-    case "preview": {
+    case "preview":
+    case "play": {
       try {
-        const result = await api.previewDownload(id);
-        if (result?.ok) setStatus("Preview opened: " + displayName(task));
-        else setStatus("Preview unavailable: " + (result?.error || "no file"));
-      } catch { setStatus("Preview failed"); }
+        await openMediaPlayerPanel(id);
+        setStatus("Playing: " + displayName(task));
+      } catch (e) { setStatus("Couldn't open the player — " + (e?.message || e)); }
+      break;
+    }
+    case "extract-here": {
+      setStatus("Extracting: " + displayName(task) + "…");
+      try {
+        const result = await api.archiveExtractHere(id);
+        setStatus(`Extracted ${result.fileCount} file${result.fileCount !== 1 ? "s" : ""} to ${result.destDir}`);
+      } catch (e) { setStatus("Extract failed — " + (e?.message || e)); }
+      break;
+    }
+    case "extract-to": {
+      try {
+        const result = await api.archiveExtractTo(id);
+        setStatus(`Extracted ${result.fileCount} file${result.fileCount !== 1 ? "s" : ""} to ${result.destDir}`);
+      } catch (e) {
+        // A cancelled folder picker rejects too — don't show that as an error.
+        if (!/no destination folder/i.test(String(e?.message || e))) {
+          setStatus("Extract failed — " + (e?.message || e));
+        }
+      }
+      break;
+    }
+    case "create-zip": {
+      try {
+        const outputPath = await api.archiveCreateZip(id);
+        setStatus("Archive created: " + outputPath);
+      } catch (e) {
+        if (!/no output location/i.test(String(e?.message || e))) {
+          setStatus("Couldn't create archive — " + (e?.message || e));
+        }
+      }
       break;
     }
     case "open": {
@@ -813,6 +934,12 @@ async function handleRowAction(id, action) {
     case "properties": {
       openPropertiesDialog(id); break;
     }
+    case "segmentmap": {
+      openSegmentMapDialog(id); break;
+    }
+    case "tracer": {
+      openTracerPanel(); break;
+    }
     case "torrent-files": {
       openTorrentFilesPanel(id); break;
     }
@@ -820,106 +947,10 @@ async function handleRowAction(id, action) {
   updateStats(); scheduleCatTreeRender();
 }
 
-/* ── Rename dialog ──────────────────────────────────────────────── */
-function openRenameDialog(id) {
-  const task = taskStore.get(id);
-  if (!task) return;
-  const input = document.getElementById("renameInput");
-  input.value = displayName(task);
-  openPanel(renameDialog, id);
-  input.focus(); input.select();
-
-  const doRename = () => {
-    const newName = input.value.trim();
-    if (newName) {
-      taskStore.set(id, { ...task, filename: newName });
-      upsertRow(taskStore.get(id));
-      setStatus("Renamed to: " + newName);
-    }
-    closePanel(renameDialog);
-  };
-
-  document.getElementById("btnRenameOk").onclick = doRename;
-  document.getElementById("btnRenameCancel").onclick = () => closePanel(renameDialog);
-  input.onkeydown = (e) => { if (e.key === "Enter") doRename(); if (e.key === "Escape") closePanel(renameDialog); };
-}
-
-/* ── Properties dialog ──────────────────────────────────────────── */
-function openPropertiesDialog(id) {
-  const task = taskStore.get(id);
-  if (!task) return;
-  const name = displayName(task);
-  const received = task.receivedBytes || 0;
-  const size = Number(task.size || 0);
-  const pct = size > 0 ? ((received / size) * 100).toFixed(1) + "%" : "—";
-  const rows = [
-    ["File name",    name],
-    ["URL",          task.url || "—"],
-    ["Status",       task.status || "—"],
-    ["Size",         size > 0 ? fmt(size) : "—"],
-    ["Downloaded",   received > 0 ? fmt(received) : "—"],
-    ["Progress",     pct],
-    ["Label",        task.label || "—"],
-    ["Created",      task.createdAt ? new Date(task.createdAt).toLocaleString() : "—"],
-    ["Type",         task.kind || "http"],
-  ];
-  const content = document.getElementById("propertiesContent");
-  content.innerHTML = rows.map(([k, v]) =>
-    `<div class="sd-row"><span>${escHtml(k)}</span><strong style="word-break:break-all;text-align:right;max-width:300px;">${escHtml(String(v))}</strong></div>`
-  ).join("");
-  openPanel(propertiesDialog);
-  document.getElementById("btnCloseProperties").onclick = () => closePanel(propertiesDialog);
-}
-
-/* ── Delete confirmation (IDM-style) ────────────────────────────── */
-let _skipDeleteConfirm = localStorage.getItem("speusis_skipDeleteConfirm") === "1";
-
-async function performActualDelete(id, deleteFromDisk) {
-  const task = taskStore.get(id);
-  if (!task) return;
-  if (api.removeDownload) {
-    await api.removeDownload(id, !!deleteFromDisk);
-  } else {
-    await api.cancelDownload(id);
-  }
-  taskStore.delete(id); speedMap.delete(id); removeRow(id);
-  setStatus((deleteFromDisk ? "Completely deleted: " : "Deleted: ") + displayName(task));
-  updateStats(); scheduleCatTreeRender();
-}
-
-function showDeleteConfirm(id) {
-  return new Promise((resolve) => {
-    if (_skipDeleteConfirm) {
-      performActualDelete(id, false).then(resolve);
-      return;
-    }
-    openPanel(deleteConfirmDialog, id);
-    const chkDisk   = document.getElementById("chkDeleteFromDisk");
-    const chkSkip   = document.getElementById("chkDontShowDeleteAgain");
-    const btnYes    = document.getElementById("btnDeleteConfirmYes");
-    const btnNo     = document.getElementById("btnDeleteConfirmNo");
-    if (chkDisk)  chkDisk.checked  = false;
-    if (chkSkip)  chkSkip.checked  = false;
-
-    const cleanup = () => {
-      closePanel(deleteConfirmDialog);
-      btnYes.onclick = null;
-      btnNo.onclick  = null;
-    };
-    btnYes.onclick = async () => {
-      const fromDisk = chkDisk?.checked ?? false;
-      const skip     = chkSkip?.checked ?? false;
-      if (skip) {
-        _skipDeleteConfirm = true;
-        localStorage.setItem("speusis_skipDeleteConfirm", "1");
-      }
-      cleanup();
-      await performActualDelete(id, fromDisk);
-      resolve();
-    };
-    btnNo.onclick = () => { cleanup(); resolve(); };
-  });
-}
+/* ── Rename / Properties / Segment Map / Tracer / Delete-confirm ──
+ * Moved to dialogs.js (v0.5.43 split, Pass 3). Wired up via
+ * initDialogs() — see the import block up top and the init call
+ * near the other panel init calls below. */
 
 /* ── Selection ──────────────────────────────────────────────────── */
 function selectRow(id) {
@@ -955,6 +986,33 @@ function openCtxMenu(e, id) {
     el.classList.toggle("ctx-grayed", !isDone && !isActive);
   });
 
+  /* Media Player + Archive Manager (v0.5.50) — shown only for the relevant
+   * file types, grayed until the underlying file actually exists on disk. */
+  const taskName = task ? displayName(task) : "";
+  const isPlayable = ["running", "paused", "completed"].includes(status);
+  const isMedia = isMediaName(taskName);
+  const isArchive = isArchiveName(taskName);
+
+  const ctxPlay = document.getElementById("ctxPlay");
+  if (ctxPlay) {
+    ctxPlay.classList.toggle("hidden", !isMedia);
+    ctxPlay.classList.toggle("ctx-grayed", !isPlayable);
+  }
+  const ctxExtractHere = document.getElementById("ctxExtractHere");
+  const ctxExtractTo = document.getElementById("ctxExtractTo");
+  const ctxCreateZip = document.getElementById("ctxCreateZip");
+  const ctxArchiveSep = document.getElementById("ctxArchiveSep");
+  [ctxExtractHere, ctxExtractTo].forEach(el => {
+    if (!el) return;
+    el.classList.toggle("hidden", !isArchive);
+    el.classList.toggle("ctx-grayed", !isDone);
+  });
+  if (ctxCreateZip) {
+    ctxCreateZip.classList.toggle("hidden", false);
+    ctxCreateZip.classList.toggle("ctx-grayed", !isDone);
+  }
+  if (ctxArchiveSep) ctxArchiveSep.classList.toggle("hidden", !isArchive);
+
   ctxMenu.classList.remove("hidden");
   const vw = window.innerWidth, vh = window.innerHeight;
   let x = e.clientX, y = e.clientY;
@@ -965,7 +1023,10 @@ function openCtxMenu(e, id) {
   ctxMenu.style.left = Math.max(0, x) + "px";
   ctxMenu.style.top  = Math.max(0, y) + "px";
 }
-document.addEventListener("click", () => ctxMenu.classList.add("hidden"));
+document.addEventListener("click", () => {
+  ctxMenu.classList.add("hidden");
+  closeRowActionMenus();
+});
 ctxMenu.addEventListener("click", e => {
   const item = e.target.closest(".ctx-item");
   if (!item || item.classList.contains("ctx-grayed")) return;
@@ -1019,14 +1080,15 @@ function drawSpeedChart(totalSpeed) {
     const y = H - (v / max) * (H - 6) - 3;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = "#2563eb";
+  const lineColor = getComputedStyle(document.body).getPropertyValue("--text").trim() || "#e8e8e8";
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
   ctx.lineTo(W, H);
   ctx.lineTo(0, H);
   ctx.closePath();
-  ctx.fillStyle = "rgba(37,99,235,0.12)";
+  ctx.fillStyle = hexToRgba(lineColor, 0.12);
   ctx.fill();
 
   // Grid line at 50%
@@ -1408,7 +1470,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
     const info  = result?.info  ?? null;
     const error = result?.error ?? null;
     if (info) {
-      statusEl.style.color = "#4ade80";
+      statusEl.style.color = "#86efac";
       statusEl.textContent = `v${info.version} is available! Downloading now starts from the update banner.`;
       // The main window shows the actual banner via the update-available
       // event the backend now emits (see update_check in commands.rs) -
@@ -1419,7 +1481,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
       statusEl.textContent = "Could not reach update server.";
       console.warn("[Speusis] Update check failed:", error);
     } else {
-      statusEl.style.color = "#4ade80";
+      statusEl.style.color = "#86efac";
       statusEl.textContent = `You're up to date! (v${_appVersion} is the latest)`;
     }
   } catch {
@@ -1490,11 +1552,11 @@ function updateRegBadge() {
   if (regFormVersionEl) regFormVersionEl.textContent = `Speusis v${_appVersion}`;
   if (_isRegistered) {
     const license = getStoredLicense();
-    if (badge) { badge.textContent = license?.name ? `Speusis v${_appVersion} • Registered to ${license.name}` : `Speusis v${_appVersion} • Registered`; badge.style.color = "#4ade80"; }
-    if (menuItem) { menuItem.style.color = "#4ade80"; menuItem.style.fontWeight = "700"; }
+    if (badge) { badge.textContent = license?.name ? `Speusis v${_appVersion} • Registered to ${license.name}` : `Speusis v${_appVersion} • Registered`; badge.style.color = "#86efac"; }
+    if (menuItem) { menuItem.style.color = "#86efac"; menuItem.style.fontWeight = "700"; }
   } else {
     if (badge) { badge.textContent = `Speusis v${_appVersion}`; badge.style.color = "var(--accent)"; }
-    if (menuItem) { menuItem.style.color = "#fbbf24"; menuItem.style.fontWeight = "600"; }
+    if (menuItem) { menuItem.style.color = "#fcd34d"; menuItem.style.fontWeight = "600"; }
   }
 }
 
@@ -1612,7 +1674,7 @@ if (btnRegActivate) {
       if (successView) successView.classList.remove("hidden");
       fillRegLicenseCard(licenseData);
     } catch (err) {
-      if (ki) { ki.style.borderColor = "#ef4444"; setTimeout(() => ki.style.borderColor = "", 1500); }
+      if (ki) { ki.style.borderColor = "#f87171"; setTimeout(() => ki.style.borderColor = "", 1500); }
       const statusText = typeof err === "string" ? err : (err?.message || "Activation failed.");
       console.warn("[Speusis] License activation failed:", statusText);
     } finally {
@@ -1651,6 +1713,7 @@ async function refreshSettings() {
   if (remoteAccessEl)    remoteAccessEl.checked  = s.remoteAccess ?? false;
   if (allowInvalidTlsEl) allowInvalidTlsEl.checked = s.allowInvalidTls ?? false;
   if (seedRatioEl)       seedRatioEl.value       = s.seedRatio ?? 1.0;
+  if (tempDirEl)         tempDirEl.value         = s.tempDir ?? "";
 
   const fields = { "Download Directory": s.downloadDir };
   settingsDet.innerHTML = Object.entries(fields)
@@ -1712,10 +1775,14 @@ maxConcurrentEl?.addEventListener("change", async e => {
   setStatus("Max concurrent downloads set to " + v);
 });
 defaultSegmentsEl?.addEventListener("change", async e => {
-  const v = Math.max(1, Math.min(16, parseInt(e.target.value) || 1));
+  const v = Math.max(1, Math.min(32, parseInt(e.target.value) || 1));
   e.target.value = v;
   await api.updateSettings({ defaultSegments: v });
   setStatus("Segments per download set to " + v + " (applies to new downloads)");
+});
+document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
+  if (selectedId) openSegmentMapDialog(selectedId);
+  else setStatus("Select a download first to view its segment map");
 });
 downloadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
@@ -1753,413 +1820,29 @@ seedRatioEl?.addEventListener("change", async e => {
   await api.updateSettings({ seedRatio: v });
   setStatus("Default seed ratio goal set to " + v);
 });
-
-/* ── Scheduler Panel ────────────────────────────────────────────── */
-function buildHourOptions(selId, value) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.innerHTML = "";
-  for (let h = 0; h < 24; h++) {
-    const opt = document.createElement("option");
-    opt.value = h;
-    opt.textContent = String(h).padStart(2,"0") + ":00";
-    if (h === value) opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
-function buildMinOptions(selId, value) {
-  const sel = document.getElementById(selId);
-  if (!sel) return;
-  sel.innerHTML = "";
-  for (let m = 0; m < 60; m += 5) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = ":" + String(m).padStart(2,"0");
-    if (m === value || (value !== undefined && Math.abs(m - value) < 5 && !sel.querySelector("[selected]"))) opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
-
-async function openSchedulerPanel() {
-  const s = await api.getSettings();
-  document.getElementById("schedEnabled").checked = s.scheduleEnabled;
-  buildHourOptions("schedStartH", s.scheduleStartHour);
-  buildMinOptions("schedStartM",  s.scheduleStartMinute);
-  buildHourOptions("schedStopH",  s.scheduleStopHour);
-  buildMinOptions("schedStopM",   s.scheduleStopMinute);
-  document.getElementById("peakEnabled").checked = s.peakHoursEnabled;
-  buildHourOptions("peakStartH",  s.peakStartHour);
-  buildHourOptions("peakStopH",   s.peakStopHour);
-  document.getElementById("peakDlLimit").value = s.peakDownloadLimit ? Math.round(s.peakDownloadLimit/1024) : "";
-  document.getElementById("peakUlLimit").value = s.peakUploadLimit  ? Math.round(s.peakUploadLimit/1024) : "";
-  openPanel(schedulerPanel);
-}
-
-document.getElementById("btnCloseScheduler").addEventListener("click", () => closePanel(schedulerPanel));
-document.getElementById("btnSaveScheduler").addEventListener("click", async () => {
-  const patch = {
-    scheduleEnabled:     document.getElementById("schedEnabled").checked,
-    scheduleStartHour:   parseInt(document.getElementById("schedStartH").value) || 0,
-    scheduleStartMinute: parseInt(document.getElementById("schedStartM").value) || 0,
-    scheduleStopHour:    parseInt(document.getElementById("schedStopH").value) || 23,
-    scheduleStopMinute:  parseInt(document.getElementById("schedStopM").value) || 0,
-    peakHoursEnabled:    document.getElementById("peakEnabled").checked,
-    peakStartHour:       parseInt(document.getElementById("peakStartH").value) || 9,
-    peakStopHour:        parseInt(document.getElementById("peakStopH").value) || 18,
-    peakDownloadLimit:   (parseInt(document.getElementById("peakDlLimit").value) || 0) * 1024,
-    peakUploadLimit:     (parseInt(document.getElementById("peakUlLimit").value) || 0) * 1024,
-  };
-  await api.updateSettings(patch);
-  closePanel(schedulerPanel);
-  setStatus("Scheduler settings saved");
+tempDirEl?.addEventListener("change", async e => {
+  const v = e.target.value.trim();
+  await api.updateSettings({ tempDir: v });
+  setStatus(v ? "Temp directory set — applies to new downloads" : "Temp directory cleared — using download folder");
 });
 
-/* ── Site Logins Panel ──────────────────────────────────────────── */
-async function openLoginsPanel() {
-  await renderCredList();
-  openPanel(loginsPanel);
-}
+/* ── Scheduler / Logins / RSS / Batch / Grabber / Torrent panels ──
+ * Moved to panels-config.js and panels-transfer.js (v0.5.43 split,
+ * Pass 2). Wired up via initConfigPanels()/initTransferPanels()
+ * near the top of this file — see the `import` block up top and
+ * the init calls right after settingsPanel wiring below. */
 
-async function renderCredList() {
-  const s = await api.getSettings();
-  const creds = s.credentials || [];
-  const list = document.getElementById("credentialList");
-  if (creds.length === 0) {
-    list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">No saved credentials yet.</div>`;
-    return;
-  }
-  list.innerHTML = creds.map(c => `
-    <div class="cred-row">
-      <div class="cred-info">
-        <div class="cred-domain">${escHtml(c.domain)}</div>
-        <div class="cred-user">${escHtml(c.username)} / ••••••</div>
-      </div>
-      <button class="cred-remove" data-domain="${escHtml(c.domain)}">Remove</button>
-    </div>`).join("");
+const { openSchedulerPanel, openLoginsPanel, openRssPanel } =
+  initConfigPanels({ api, openPanel, closePanel, setStatus });
 
-  list.querySelectorAll(".cred-remove").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await api.removeCredential(btn.dataset.domain);
-      await renderCredList();
-      setStatus("Credential removed: " + btn.dataset.domain);
-    });
-  });
-}
+const { openBatchPanel, openGrabberPanel, openTorrentFilesPanel } =
+  initTransferPanels({ api, openPanel, closePanel, setStatus, loadDownloads });
 
-document.getElementById("btnCloseLogins").addEventListener("click", () => closePanel(loginsPanel));
-document.getElementById("btnAddCred").addEventListener("click", async () => {
-  const domain = document.getElementById("credDomain").value.trim();
-  const user   = document.getElementById("credUser").value.trim();
-  const pass   = document.getElementById("credPass").value;
-  if (!domain || !user) { setStatus("Domain and username required"); return; }
-  await api.addCredential({ domain, username: user, password: pass });
-  document.getElementById("credDomain").value = "";
-  document.getElementById("credUser").value   = "";
-  document.getElementById("credPass").value   = "";
-  await renderCredList();
-  setStatus("Credential saved: " + domain);
-});
+const { openMediaPlayerPanel } =
+  initMediaPlayer({ api, openPanel, closePanel, setStatus, taskStore });
 
-/* ── RSS Panel ──────────────────────────────────────────────────── */
-async function openRssPanel() {
-  await renderRssFeeds();
-  openPanel(rssPanel);
-}
-
-async function renderRssFeeds() {
-  const feeds = await api.listRssFeeds();
-  const list = document.getElementById("rssFeedList");
-  if (!feeds || feeds.length === 0) {
-    list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">No RSS feeds configured yet.</div>`;
-    return;
-  }
-  list.innerHTML = feeds.map(f => `
-    <div class="rss-row">
-      <span class="rss-enabled ${f.enabled ? "on" : "off"}" title="${f.enabled ? "Active" : "Disabled"}"></span>
-      <div class="rss-info">
-        <div class="rss-name">${escHtml(f.name)}</div>
-        <div class="rss-url">${escHtml(f.url)}</div>
-      </div>
-      <div class="rss-actions">
-        <button class="rss-btn rss-fetch" data-id="${f.id}" title="Fetch now">↻</button>
-        <button class="rss-btn rss-toggle" data-id="${f.id}" data-enabled="${f.enabled}">${f.enabled ? "Disable" : "Enable"}</button>
-        <button class="rss-btn rss-del" data-id="${f.id}">✕</button>
-      </div>
-    </div>`).join("");
-
-  list.querySelectorAll(".rss-fetch").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      btn.textContent = "…";
-      try { await api.fetchRssNow(btn.dataset.id); setStatus("RSS feed fetched"); }
-      catch { setStatus("RSS fetch failed"); }
-      btn.textContent = "↻";
-    });
-  });
-  list.querySelectorAll(".rss-toggle").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const enabled = btn.dataset.enabled === "true";
-      await api.updateRssFeed(btn.dataset.id, { enabled: !enabled });
-      await renderRssFeeds();
-    });
-  });
-  list.querySelectorAll(".rss-del").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await api.removeRssFeed(btn.dataset.id);
-      await renderRssFeeds(); setStatus("RSS feed removed");
-    });
-  });
-}
-
-document.getElementById("btnCloseRss").addEventListener("click", () => closePanel(rssPanel));
-document.getElementById("btnAddRss").addEventListener("click", async () => {
-  const name     = document.getElementById("rssFeedName").value.trim();
-  const url      = document.getElementById("rssFeedUrl").value.trim();
-  const filter   = document.getElementById("rssFeedFilter").value.trim() || undefined;
-  const interval = parseInt(document.getElementById("rssFeedInterval").value) || 1800;
-  const auto     = document.getElementById("rssFeedAuto").checked;
-  if (!name || !url) { setStatus("Name and URL required"); return; }
-  try {
-    await api.addRssFeed({ name, url, enabled: true, autoDownload: auto, fetchInterval: interval, filter });
-    document.getElementById("rssFeedName").value   = "";
-    document.getElementById("rssFeedUrl").value    = "";
-    document.getElementById("rssFeedFilter").value = "";
-    await renderRssFeeds(); setStatus("RSS feed added: " + name);
-  } catch (e) { setStatus("Failed to add feed: " + e.message); }
-});
-
-/* ── Batch Download Panel ───────────────────────────────────────── */
-let batchLinks = [];
-
-async function openBatchPanel() {
-  batchLinks = [];
-  document.getElementById("batchLinkList").innerHTML = `<div class="batch-empty">Click "Scan Active Tab" to detect downloadable links on the current browser page.</div>`;
-  openPanel(batchPanel);
-}
-
-document.getElementById("btnCloseBatch").addEventListener("click", () => closePanel(batchPanel));
-document.getElementById("btnScanLinks").addEventListener("click", async () => {
-  setStatus("Scanning page for links…");
-  try {
-    // Send message to browser extension via the listener port
-    const resp = await fetch("http://127.0.0.1:9999/health");
-    if (!resp.ok) throw new Error("Speusis listener not running");
-    // The extension scanner is triggered from the browser side.
-    // Here we show instructions and handle manual URL input as fallback.
-    renderBatchPlaceholder();
-    setStatus("Extension will push links — or paste URLs below");
-  } catch {
-    renderBatchPlaceholder();
-    setStatus("Enter URLs manually in the list");
-  }
-});
-
-function renderBatchPlaceholder() {
-  const list = document.getElementById("batchLinkList");
-  list.innerHTML = `<div class="batch-empty">
-    <div style="margin-bottom:8px;">Paste one URL per line below, or use the browser extension's "Scan Links" button.</div>
-    <textarea id="batchManualUrls" style="width:100%;height:100px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:8px;font:inherit;font-size:11px;resize:vertical;" placeholder="https://example.com/file1.zip
-https://example.com/file2.mp4
-..."></textarea>
-    <button id="btnParseBatchUrls" class="btn-start" style="margin-top:8px;">Load URLs</button>
-  </div>`;
-  document.getElementById("btnParseBatchUrls")?.addEventListener("click", () => {
-    const raw = document.getElementById("batchManualUrls")?.value || "";
-    const urls = raw.split(/\n/).map(s => s.trim()).filter(s => s.startsWith("http"));
-    batchLinks = urls.map(url => ({ url, name: url.split("/").pop()?.split("?")[0] || url }));
-    renderBatchList(batchLinks);
-  });
-}
-
-function renderBatchList(links) {
-  const filterVal = (document.getElementById("batchFilter")?.value || "").toLowerCase();
-  const filtered = filterVal ? links.filter(l => l.name.toLowerCase().includes(filterVal) || l.url.toLowerCase().includes(filterVal)) : links;
-  const list = document.getElementById("batchLinkList");
-  if (filtered.length === 0) {
-    list.innerHTML = `<div class="batch-empty">No matching links found.</div>`;
-    return;
-  }
-  list.innerHTML = filtered.map((l, i) => {
-    const ext = l.url.split(".").pop()?.split("?")[0]?.slice(0,5).toUpperCase() || "—";
-    const shortName = l.name.length > 60 ? l.name.slice(0, 57) + "…" : l.name;
-    return `<div class="batch-item">
-      <input type="checkbox" class="batch-cb" data-url="${escHtml(l.url)}" data-name="${escHtml(l.name)}" checked />
-      <span class="batch-name" title="${escHtml(l.url)}">${escHtml(shortName)}</span>
-      <span class="batch-ext">${ext}</span>
-    </div>`;
-  }).join("");
-}
-
-document.getElementById("batchFilter").addEventListener("input", () => renderBatchList(batchLinks));
-document.getElementById("btnSelectAll").addEventListener("click", () => {
-  document.querySelectorAll(".batch-cb").forEach(cb => { cb.checked = true; });
-});
-document.getElementById("btnSelectNone").addEventListener("click", () => {
-  document.querySelectorAll(".batch-cb").forEach(cb => { cb.checked = false; });
-});
-
-document.getElementById("btnDownloadSelected").addEventListener("click", async () => {
-  const checked = [...document.querySelectorAll(".batch-cb:checked")];
-  if (checked.length === 0) { setStatus("No links selected"); return; }
-  const urls = checked.map(cb => ({ url: cb.dataset.url, filename: cb.dataset.name }));
-  closePanel(batchPanel);
-  const results = await api.batchAddDownloads(urls);
-  let added = 0;
-  for (const r of (results || [])) {
-    if (r.ok) { added++; }
-  }
-  setStatus(`Batch: ${added} of ${urls.length} downloads added`);
-  await loadDownloads();
-});
-
-/* ── Toolbar: Grabber + Basket ──────────────────────────────────── */
-document.getElementById("btnGrabber")?.addEventListener("click", () => openGrabberPanel());
-document.getElementById("btnBasket")?.addEventListener("click", () => api.openBasket?.());
-
-/* ── Web Grabber Panel ──────────────────────────────────────────── */
-let grabberLinks = [];
-
-function openGrabberPanel() {
-  grabberLinks = [];
-  const list = document.getElementById("grabberLinkList");
-  if (list) list.innerHTML = `<div class="batch-empty">Enter a URL above and click "Scan Page" to find downloadable links.</div>`;
-  const status = document.getElementById("grabberStatus");
-  if (status) status.textContent = "";
-  openPanel(grabberPanel);
-  document.getElementById("grabberUrl")?.focus();
-}
-
-document.getElementById("btnCloseGrabber")?.addEventListener("click", () => closePanel(grabberPanel));
-
-document.getElementById("btnGrabberScan")?.addEventListener("click", async () => {
-  const url = document.getElementById("grabberUrl")?.value?.trim();
-  if (!url) { setStatus("Enter a URL to scan"); return; }
-  const statusEl = document.getElementById("grabberStatus");
-  if (statusEl) statusEl.textContent = "Scanning…";
-  setStatus("Web Grabber: scanning page…");
-  try {
-    const result = await api.grabberScan?.(url);
-    if (!result || !result.ok) {
-      if (statusEl) statusEl.textContent = result?.error || "Scan failed";
-      return;
-    }
-    grabberLinks = result.links || [];
-    renderGrabberList();
-    if (statusEl) statusEl.textContent = `Found ${grabberLinks.length} downloadable link${grabberLinks.length !== 1 ? "s" : ""}.`;
-    setStatus(`Grabber: ${grabberLinks.length} links found`);
-  } catch (e) {
-    if (statusEl) statusEl.textContent = "Error: " + e.message;
-    setStatus("Grabber scan failed");
-  }
-});
-
-document.getElementById("grabberFilter")?.addEventListener("input", renderGrabberList);
-
-function renderGrabberList() {
-  const filterVal = (document.getElementById("grabberFilter")?.value || "").toLowerCase();
-  const filtered = filterVal
-    ? grabberLinks.filter(l => l.name.toLowerCase().includes(filterVal) || l.ext.toLowerCase().includes(filterVal) || l.url.toLowerCase().includes(filterVal))
-    : grabberLinks;
-  const list = document.getElementById("grabberLinkList");
-  if (!list) return;
-  if (filtered.length === 0) {
-    list.innerHTML = `<div class="batch-empty">${grabberLinks.length ? "No links match the filter." : "Enter a URL above and click 'Scan Page'."}</div>`;
-    return;
-  }
-  list.innerHTML = filtered.map(l => {
-    const shortName = l.name.length > 65 ? l.name.slice(0, 62) + "…" : l.name;
-    const ext = (l.ext || "").toUpperCase().slice(0, 6);
-    return `<div class="batch-item">
-      <input type="checkbox" class="grabber-cb" data-url="${escHtml(l.url)}" data-name="${escHtml(l.name)}" checked />
-      <span class="batch-name" title="${escHtml(l.url)}">${escHtml(shortName)}</span>
-      <span class="batch-ext">${ext}</span>
-    </div>`;
-  }).join("");
-}
-
-document.getElementById("btnGrabberSelectAll")?.addEventListener("click", () => {
-  document.querySelectorAll(".grabber-cb").forEach(cb => { cb.checked = true; });
-});
-document.getElementById("btnGrabberSelectNone")?.addEventListener("click", () => {
-  document.querySelectorAll(".grabber-cb").forEach(cb => { cb.checked = false; });
-});
-
-document.getElementById("btnGrabberDownload")?.addEventListener("click", async () => {
-  const checked = [...document.querySelectorAll(".grabber-cb:checked")];
-  if (checked.length === 0) { setStatus("No links selected"); return; }
-  const urls = checked.map(cb => ({ url: cb.dataset.url, filename: cb.dataset.name }));
-  closePanel(grabberPanel);
-  const results = await api.batchAddDownloads?.(urls);
-  let added = 0;
-  for (const r of (results || [])) { if (r.ok) added++; }
-  setStatus(`Grabber: ${added} of ${urls.length} downloads added`);
-  await loadDownloads();
-});
-
-/* ── Torrent Files Dialog ───────────────────────────────────────── */
-let torrentFilesTaskId = null;
-
-async function openTorrentFilesPanel(taskId) {
-  torrentFilesTaskId = taskId;
-  const list = document.getElementById("torrentFilesList");
-  if (!list) return;
-  list.innerHTML = `<div class="batch-empty">Loading…</div>`;
-  openPanel(torrentFilesPanel, taskId);
-  try {
-    const files = await api.getTorrentFiles?.(taskId) || [];
-    if (files.length === 0) {
-      list.innerHTML = `<div class="batch-empty">No file list available yet (torrent may still be loading metadata).</div>`;
-      return;
-    }
-    list.innerHTML = files.map(f => {
-      const name = f.name || f.path || `File ${f.index}`;
-      const size = f.length ? fmt(f.length) : "—";
-      return `<div class="batch-item">
-        <input type="checkbox" class="tf-cb" data-index="${f.index}" ${f.selected ? "checked" : ""} />
-        <span class="batch-name" title="${escHtml(f.path || name)}">${escHtml(name)}</span>
-        <span class="batch-ext">${size}</span>
-      </div>`;
-    }).join("");
-    list.querySelectorAll(".tf-cb").forEach(cb => {
-      cb.addEventListener("change", async () => {
-        await api.selectTorrentFile?.(torrentFilesTaskId, parseInt(cb.dataset.index), cb.checked);
-      });
-    });
-  } catch (e) {
-    list.innerHTML = `<div class="batch-empty">Error: ${escHtml(e.message)}</div>`;
-  }
-}
-
-document.getElementById("btnCloseTorrentFiles")?.addEventListener("click", () => closePanel(torrentFilesPanel));
-
-/* ── Create Torrent Panel ───────────────────────────────────────── */
-document.getElementById("btnCloseCreateTorrent").addEventListener("click", () => closePanel(createTorrentPanel));
-document.getElementById("btnChooseSource").addEventListener("click", async () => {
-  const path = await api.chooseFile({ directory: false });
-  if (path) document.getElementById("torrentSourcePath").value = path;
-});
-document.getElementById("btnDoCreateTorrent").addEventListener("click", async () => {
-  const src     = document.getElementById("torrentSourcePath").value.trim();
-  const name    = document.getElementById("torrentName").value.trim() || undefined;
-  const tracker = document.getElementById("torrentTracker").value.trim() || undefined;
-  const statusEl = document.getElementById("torrentCreateStatus");
-  statusEl.className = "torrent-status";
-  statusEl.textContent = "";
-  if (!src) { setStatus("Choose a source file or folder first"); return; }
-  try {
-    const result = await api.createTorrent(src, "", name, tracker);
-    if (result?.ok) {
-      statusEl.className = "torrent-status ok";
-      statusEl.textContent = "Created: " + result.outputPath;
-      setStatus(".torrent created successfully");
-    } else {
-      statusEl.className = "torrent-status err";
-      statusEl.textContent = "Error: " + (result?.error || "Unknown error");
-    }
-  } catch (e) {
-    statusEl.className = "torrent-status err";
-    statusEl.textContent = "Error: " + e.message;
-  }
-});
+const { openRenameDialog, openPropertiesDialog, openSegmentMapDialog, openTracerPanel, showDeleteConfirm, stopSegMapPoll, stopTracerPoll } =
+  initDialogs({ api, openPanel, closePanel, setStatus, taskStore, speedMap, upsertRow, removeRow, updateStats, scheduleCatTreeRender });
 
 /* ── Init ───────────────────────────────────────────────────────── */
 async function initializeNativePanel() {
@@ -2190,11 +1873,20 @@ async function initializeNativePanel() {
     case "propertiesDialog":
       openPropertiesDialog(nativePanelTaskId);
       break;
+    case "segmentMapDialog":
+      openSegmentMapDialog(nativePanelTaskId);
+      break;
+    case "tracerPanel":
+      openTracerPanel();
+      break;
     case "deleteConfirmDialog":
       showDeleteConfirm(nativePanelTaskId);
       break;
     case "registrationPanel":
       openRegistrationPanel();
+      break;
+    case "autoUpdateDialog":
+      openAutoUpdateDialog();
       break;
     default: {
       const nativePanel = document.getElementById(nativePanelName);
@@ -2224,41 +1916,24 @@ const NATIVE_PANEL_SIZES = {
   renameDialog: [480, 300],
   propertiesDialog: [520, 420],
   deleteConfirmDialog: [520, 360],
+  segmentMapDialog: [340, 300],
+  tracerPanel: [380, 560],
+  autoUpdateDialog: [480, 340],
+  updateWarnDialog: [440, 260],
 };
 
 function installNativePanelSizing() {
-  if (!isNativePanelWindow || !nativePanelName || !window.ResizeObserver) return;
+  if (!isNativePanelWindow || !nativePanelName) return;
   const panel = document.getElementById(nativePanelName);
-  const box = panel?.querySelector(".panel-box");
-  if (!box || !api.resizePanel) return;
+  if (!panel) return;
 
-  const [minWidth, minHeight] = NATIVE_PANEL_SIZES[nativePanelName] || [320, 220];
-
-  let lastWidth = 0;
-  let lastHeight = 0;
-  let resizeFrame = 0;
-  let userResized = false;
-  const resizeWindowToCard = () => {
-    resizeFrame = 0;
-    if (userResized) return; // the user took manual control via a resize handle - stop fighting them
-    const rect = box.getBoundingClientRect();
-    const width = Math.max(minWidth, Math.ceil(rect.width + 24));
-    const height = Math.max(minHeight, Math.ceil(rect.height + 24));
-    if (width === lastWidth && height === lastHeight) return;
-    lastWidth = width;
-    lastHeight = height;
-    api.resizePanel(nativePanelName, width, height).catch(() => {});
-  };
-  const scheduleResize = () => {
-    if (!resizeFrame) resizeFrame = requestAnimationFrame(resizeWindowToCard);
-  };
-
-  new ResizeObserver(scheduleResize).observe(box);
-  scheduleResize();
-
-  // Real OS-level edge/corner resizing, same idea as startDragging() above -
-  // Tauri exposes startResizeDragging(direction) specifically for windows
-  // with decorations(false), since there's no native resize border to grab.
+  // The window is already built at its exact correct size from
+  // native_panel_config (Rust) before this ever runs - no measuring or
+  // auto-resizing here. That loop (ResizeObserver -> measure -> resizePanel
+  // -> repeat) has now caused this same "broken looking dialog" complaint
+  // twice - it kept re-measuring shared index.html content and overwriting
+  // an already-correct size with a wrong one. Trusting the Rust-side size
+  // as final removes the loop instead of patching it again.
   const currentWindow = window.__TAURI__?.window?.getCurrentWindow?.();
   if (!currentWindow?.startResizeDragging) return;
   const DIRS = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
@@ -2268,7 +1943,6 @@ function installNativePanelSizing() {
     grip.addEventListener("pointerdown", event => {
       if (event.button !== 0) return;
       event.preventDefault();
-      userResized = true;
       currentWindow.startResizeDragging(dir).catch(() => {});
     });
     panel.appendChild(grip);
@@ -2291,6 +1965,7 @@ async function init() {
   installNativePanelSizing();
   drawSpeedChart(0);
   initUpdateBanner();
+  initAutoUpdatePrompt();
   initClipboardMonitor();
 }
 
@@ -2313,6 +1988,7 @@ function initUpdateBanner() {
     ubNotes.textContent   = info.releaseNotes ? info.releaseNotes.split("\n")[0].replace(/^#+\s*/, "") : "";
     banner.dataset.url    = info.downloadUrl || "";
     banner.dataset.asarUrl = info.asarUrl || "";
+    banner.dataset.version = info.version || "";
     if (ubQuickPatch) ubQuickPatch.style.display = info.asarUrl ? "" : "none";
     if (ubDownload) {
       ubDownload.disabled = false;
@@ -2344,7 +2020,7 @@ function initUpdateBanner() {
     ubDownload.disabled = true;
     ubDownload.textContent = "Adding…";
     try {
-      const result = await api.addDownload({ url, start: true, label: "Speusis v0.5.29 Setup" });
+      const result = await api.addDownload({ url, start: true, label: banner.dataset.version ? `Speusis v${banner.dataset.version} Setup` : "Speusis Update Setup" });
       if (result?.id) {
         taskStore.set(result.id, { ...result, createdAt: Date.now() });
         upsertRow(taskStore.get(result.id));
@@ -2409,6 +2085,71 @@ function initUpdateBanner() {
 
   ubDismiss.addEventListener("click", hideBanner);
 }
+
+/* ── Automatic startup update prompt (IDM-style) ─────────────────── */
+function initAutoUpdatePrompt() {
+  if (!autoUpdateDialog || !api.onStartupUpdateAvailable) return;
+
+  api.onStartupUpdateAvailable(info => {
+    openAutoUpdateDialog(info);
+  });
+}
+
+async function openAutoUpdateDialog(info) {
+  if (!info) {
+    try { info = await api.getPendingUpdate?.(); } catch { info = null; }
+  }
+  if (!info) return;
+
+  autoUpdateDialog.dataset.url = info.downloadUrl || "";
+  const versionLine = document.getElementById("auVersionLine");
+  const notesEl = document.getElementById("auNotes");
+  if (versionLine) versionLine.textContent = `Version ${info.version} is available` + (info.downloadSize ? ` (${fmt(info.downloadSize)})` : "");
+  if (notesEl) notesEl.textContent = info.releaseNotes || "";
+
+  openPanel(autoUpdateDialog);
+}
+
+document.getElementById("btnAutoUpdateYes")?.addEventListener("click", async () => {
+  const btn = document.getElementById("btnAutoUpdateYes");
+  const url = autoUpdateDialog.dataset.url;
+  if (!url) { closePanel(autoUpdateDialog); return; }
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Adding…";
+  try {
+    const result = await api.addDownload({ url, start: true, label: `Speusis v${_appVersion} Setup` });
+    if (result?.id) {
+      taskStore.set(result.id, { ...result, createdAt: Date.now() });
+      upsertRow(taskStore.get(result.id));
+      setStatus("Speusis update added to downloads — check the download list.");
+      scheduleCatTreeRender();
+      closePanel(autoUpdateDialog);
+    } else {
+      btn.disabled = false;
+      btn.textContent = origText;
+      setStatus("Could not add update to download list — opening in browser…");
+      setTimeout(() => api.openUpdateDownload(url), 600);
+      closePanel(autoUpdateDialog);
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = origText;
+    setStatus("Update error — opening in browser…");
+    setTimeout(() => api.openUpdateDownload(url), 600);
+    closePanel(autoUpdateDialog);
+  }
+});
+
+document.getElementById("btnAutoUpdateNo")?.addEventListener("click", () => {
+  closePanel(autoUpdateDialog);
+  openPanel(updateWarnDialog);
+});
+
+document.getElementById("btnUpdateWarnBack")?.addEventListener("click", () => {
+  closePanel(updateWarnDialog);
+  openAutoUpdateDialog();
+});
 
 /* ── Clipboard URL monitor ───────────────────────────────────────── */
 function initClipboardMonitor() {

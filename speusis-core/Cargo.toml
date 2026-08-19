@@ -1,6 +1,6 @@
 [package]
 name = "speusis-core"
-version = "0.4.5"
+version = "0.4.6"
 edition = "2021"
 
 [dependencies]
@@ -35,3 +35,10 @@ librqbit = { version = "8", features = ["storage_middleware"] }
 
 # .torrent file parser + writer (for torrent_get_files and torrent_create).
 lava_torrent = "0.10"
+
+# Archive Manager (v0.5.50): ZIP read/write, TAR/TAR.GZ read. Pure-Rust
+# deflate backend (flate2's default "rust_backend"/miniz_oxide) so this
+# doesn't add a C-toolchain requirement to the Windows CI build.
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+tar = "0.4"
+flate2 = "1"

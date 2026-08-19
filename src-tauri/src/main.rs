@@ -175,7 +175,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log("=== Speusis Downloader v0.5.29 starting ===");
+            speusis_core::debug_log::log("=== Speusis Downloader v0.5.41 starting ===");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -283,6 +283,27 @@ fn main() {
             let settings_snapshot = Arc::new(StdRwLock::new(loaded_settings.clone()));
             let settings_shared = Arc::new(Mutex::new(settings_manager));
 
+            // Storing auto_start_with_system=true as the default setting
+            // only changes what gets saved to disk - it doesn't actually
+            // register anything with Windows on its own. The Options
+            // toggle reads the *real* OS registration state
+            // (autolaunch().is_enabled()) in preference to this stored
+            // value, so without this sync a fresh install would still
+            // show the toggle as off despite the new default. Runs every
+            // launch, not just first-run, so it also self-heals if
+            // something external (Task Manager, antivirus) removed the
+            // registration behind the app's back.
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let autolaunch = handle.autolaunch();
+                let currently_enabled = autolaunch.is_enabled().unwrap_or(false);
+                if loaded_settings.auto_start_with_system && !currently_enabled {
+                    let _ = autolaunch.enable();
+                } else if !loaded_settings.auto_start_with_system && currently_enabled {
+                    let _ = autolaunch.disable();
+                }
+            }
+
             let network = Arc::new(NetworkManager::new());
             let files = Arc::new(FileManager::new());
 
@@ -303,6 +324,10 @@ fn main() {
             let get_max_retries: Arc<dyn Fn() -> u32 + Send + Sync> =
                 Arc::new(move || snap_for_retries.read().map(|s| s.max_retries).unwrap_or(5));
 
+            let snap_for_temp_dir = Arc::clone(&settings_snapshot);
+            let get_temp_dir: Arc<dyn Fn() -> String + Send + Sync> =
+                Arc::new(move || snap_for_temp_dir.read().map(|s| s.temp_dir.clone()).unwrap_or_default());
+
             let http_downloader = Arc::new(HttpDirectDownloader::new(
                 event_bus.clone(),
                 Arc::clone(&network),
@@ -310,6 +335,7 @@ fn main() {
                 get_download_limit_bps,
                 get_credentials,
                 get_max_retries,
+                get_temp_dir,
             ));
             let ftp_downloader = Arc::new(FtpDownloader::new(event_bus.clone(), Arc::clone(&files)));
 
@@ -426,6 +452,7 @@ fn main() {
                 event_bus: event_bus.clone(),
                 torrent_manager,
                 pending_patch: Mutex::new(None),
+                pending_update: StdRwLock::new(None),
                 plugin_manager,
             });
 
@@ -589,6 +616,53 @@ fn main() {
                 })
                 .build(app)?;
 
+            // --- Automatic update check (IDM-style prompt) ---
+            // Separate from the manual "Check for Updates" button in About:
+            // that flow is untouched, its own event name (`update-available`),
+            // its own banner UI, never calls into this dialog.
+            // Runs once ~4s after launch (so the window has time to render
+            // first), then keeps re-checking every few hours for as long as
+            // the app stays open - previously this only ever ran once at
+            // startup, so a release published mid-session was never noticed
+            // until the next relaunch.
+            let startup_update_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut last_notified_version: Option<String> = None;
+                let mut first_run = true;
+                loop {
+                    if first_run {
+                        tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                        first_run = false;
+                    } else {
+                        tokio::time::sleep(std::time::Duration::from_secs(3 * 60 * 60)).await;
+                    }
+                    let result = speusis_core::update_checker::check_for_update(
+                        None,
+                        env!("CARGO_PKG_VERSION"),
+                    )
+                    .await;
+                    if let Some(info) = result.info {
+                        // Don't re-nag with a dialog for the exact same
+                        // version the user has already been shown this
+                        // session (they may have dismissed it on purpose).
+                        // A genuinely newer release still gets its own
+                        // fresh prompt.
+                        if last_notified_version.as_deref() == Some(info.version.as_str()) {
+                            continue;
+                        }
+                        last_notified_version = Some(info.version.clone());
+                        if let Ok(mut slot) = startup_update_handle
+                            .state::<AppState>()
+                            .pending_update
+                            .write()
+                        {
+                            *slot = Some(info.clone());
+                        }
+                        let _ = startup_update_handle.emit_to("main", "update-available-startup", info);
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -599,12 +673,17 @@ fn main() {
             commands::download_remove,
             commands::download_pause,
             commands::download_resume,
+            commands::download_segment_map,
             commands::download_open_file,
             commands::download_open_folder,
             commands::download_open_with,
             commands::download_preview,
             commands::download_streaming_url,
             commands::download_add_torrent_file,
+            commands::archive_is_supported,
+            commands::archive_extract_here,
+            commands::archive_extract_to,
+            commands::archive_create_zip,
             commands::torrent_get_files,
             commands::torrent_select_file,
             commands::torrent_create,
@@ -633,6 +712,7 @@ fn main() {
             commands::dialog_choose_file,
             commands::app_get_version,
             commands::update_check,
+            commands::update_get_pending,
             commands::update_open_download,
             commands::update_download_patch,
             commands::update_apply_patch,
