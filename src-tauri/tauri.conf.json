@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist/renderer",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "cd frontend-react && npm run dev",
-    "beforeBuildCommand": "cd frontend-react && npm install && npm run build"
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
   },
   "app": {
     "withGlobalTauri": true,
