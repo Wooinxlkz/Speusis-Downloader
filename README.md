@@ -1,11 +1,11 @@
-# Speusis Downloader v0.4.0 — Tauri/Rust Desktop Download Manager
+# Speusis Downloader v0.5.49r — Tauri/Rust Desktop Download Manager
 
 A full-featured Tauri v2 / Rust port of Speusis Downloader with real implementations of every
 major subsystem — no stubs, no placeholder commands.
 
 ---
 
-## What's implemented in v0.4.0
+## What's implemented in v0.5.49r
 
 | Module | Status | Notes |
 |---|---|---|
@@ -64,8 +64,9 @@ Speusis Downloader-tauri-v0.4.0/
 │   └── dist/
 │       ├── speusis-chromium.zip
 │       └── speusis-firefox.zip
-├── dist/renderer/           # Your existing renderer (index.html, app.js, styles.css, basket.html)
-│   └── downloadManagerBridge.js   # window.downloadManager polyfill for Tauri IPC
+├── frontend-react/          # React/Vite renderer with the restored legacy UI and motion styling
+│   ├── src/                 # Main window, menu bar, download table, panels, and settings
+│   └── public/              # Renderer icons and shared assets
 └── src/
     └── downloadManagerBridge.js
 ```
@@ -104,9 +105,11 @@ running" only when the desktop app is actually open.
 
 ## Renderer / frontend
 
-Your existing renderer (`dist/renderer/index.html`, `app.js`, `styles.css`,
-`basket.html`) works as-is. The `downloadManagerBridge.js` shim provides
-`window.downloadManager` over Tauri IPC — no changes to your `app.js` needed.
+The v0.5.49r renderer lives in `frontend-react/`. It keeps the React component
+structure from v0.5.46, restores the legacy menu, speed graph, settings fields,
+panel styling, and interaction states from the original renderer, and keeps the
+Tauri bridge connected to the existing Rust commands. The older renderer files
+remain available in the v0.5.43 archive for reference.
 
 ---
 
