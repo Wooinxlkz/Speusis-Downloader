@@ -104,6 +104,13 @@ pub struct DownloadTask {
     pub seed_ratio: Option<f64>,
     #[serde(rename = "securityScan")]
     pub security_scan: Option<SecurityScanInfo>,
+    /// Human-readable reason the download last failed (HEAD/GET status,
+    /// network error, etc.). Previously this only ever went out as a
+    /// one-shot DownloadFailed event and to debug.log - once a task sat
+    /// in the list as "Failed" there was no way to see why without digging
+    /// through the log file. Cleared on a fresh start/retry.
+    #[serde(rename = "lastError")]
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

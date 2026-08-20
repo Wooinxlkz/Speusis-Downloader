@@ -454,6 +454,7 @@ impl TorrentManager {
             } else {
                 let mut t = task.lock().await;
                 t.status = DownloadStatus::Failed;
+                t.last_error = Some("Torrent engine reported completion, but no output files were found on disk. Remove this download and try again.".to_string());
                 let retry = t.retry_count;
                 drop(t);
                 self.event_bus.emit(AppEvent::DownloadFailed(DownloadFailed {
@@ -503,6 +504,7 @@ impl Downloader for TorrentManager {
                     DownloadStatus::Failed
                 };
                 if !is_cancel {
+                    t.last_error = Some(e.to_string());
                     let retry = t.retry_count;
                     let eid = t.id.clone();
                     drop(t);

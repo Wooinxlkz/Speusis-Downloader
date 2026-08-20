@@ -281,6 +281,7 @@ impl Downloader for FtpDownloader {
             if current.status != DownloadStatus::Paused {
                 current.status =
                     if token.is_cancelled() { DownloadStatus::Cancelled } else { DownloadStatus::Failed };
+                if current.status == DownloadStatus::Failed { current.last_error = Some(error.to_string()); }
                 let retry_count = current.retry_count;
                 let id = current.id.clone();
                 drop(current);

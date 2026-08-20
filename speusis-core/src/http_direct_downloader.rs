@@ -682,6 +682,7 @@ impl Downloader for HttpDirectDownloader {
             let mut t = task.lock().await;
             if t.status != DownloadStatus::Paused {
                 t.status = if token.is_cancelled() { DownloadStatus::Cancelled } else { DownloadStatus::Failed };
+                if t.status == DownloadStatus::Failed { t.last_error = Some(e.to_string()); }
                 let retry_count = t.retry_count;
                 let id = t.id.clone();
                 drop(t);

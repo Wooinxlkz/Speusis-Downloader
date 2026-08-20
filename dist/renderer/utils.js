@@ -86,7 +86,10 @@ export function statusBadge(task) {
     cancelled: ["st-cancelled", "Cancelled"],
   };
   const [cls, label] = map[status] || ["st-queued", status || "Unknown"];
-  return `<span class="st-badge ${cls}">${label}</span>${scanBadge(task?.securityScan)}`;
+  const title = status === "failed" && task?.lastError
+    ? ` title="${escHtml(task.lastError)}"`
+    : "";
+  return `<span class="st-badge ${cls}"${title}>${label}</span>${scanBadge(task?.securityScan)}`;
 }
 
 /* ── Row SVG action buttons (shared by row actions + tracer panel) ── */

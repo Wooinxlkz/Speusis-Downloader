@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.52` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.53` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.52-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.53-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.53](#whats-new-in-v0553)
 - [What's new in v0.5.52](#whats-new-in-v0552)
 - [What's new in v0.5.51](#whats-new-in-v0551)
 - [What Speusis is](#what-speusis-is)
@@ -34,6 +35,34 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.53
+
+Fix release, backend + browser extension:
+
+- **Fixed the browser extension dialog never showing a file size.** Three separate bugs:
+  the display fallback (`fileSize.textContent || "Stream"`) never fell through because the
+  placeholder text (`—`) is itself a non-empty, truthy string; YouTube/googlevideo stream
+  captures never carried a size at all (`interceptor.js` never read the `clen` query param
+  that Google puts right in the URL); and the plain-file size fetch (`fetchFileSize`'s HEAD
+  request) was blocked by CORS for almost every site, since `manifest.json` only granted
+  host permissions for `127.0.0.1:9999` and the cipher resolver. All three fixed:
+  `clen` is now extracted and threaded through `content.js` → `service-worker.js` → the
+  dialog; the display fallback uses an explicit `sizeKnown` flag instead of testing
+  `textContent`; and `<all_urls>` host permission was added so the CORS HEAD fetch can
+  actually succeed. Extension bumped to **v0.34.0**.
+- **Failure reasons are no longer thrown away.** A download's error was previously only
+  ever emitted as a one-shot `DownloadFailed` event and written to `debug.log` — once a
+  task sat in the list as "Failed", there was no way to see why without digging through
+  the log file. Added a `lastError` field to `DownloadTask` (set by every downloader —
+  HTTP, FTP, torrent — on failure, cleared on resume/retry) and wired it into the UI:
+  hovering the "Failed" badge on a download now shows the actual reason (HTTP status,
+  network error, etc.) as a tooltip.
+- Extension mux (adaptive-quality, e.g. 1080p/4K) downloads now carry an estimated
+  combined file size (video-only + audio-only) through to the dialog as well, for parity
+  with the size fix above. Note: end-to-end muxed downloading itself is still not
+  implemented on the backend (see Known limitations) — this only fixes what the dialog
+  displays for those entries.
 
 ## What's new in v0.5.52
 
@@ -338,6 +367,13 @@ Being direct here, because overselling this is how people get burned:
   code yet (see the feature matrix above).
 - The listener is local-loopback (`127.0.0.1`) only unless `remote_access` is explicitly
   enabled in settings.
+- **Muxed (adaptive-quality) YouTube downloads don't work end-to-end yet.** Everything
+  above the four legacy "combined" itags (720p/360p/240p/144p) requires downloading a
+  separate video-only and audio-only stream and merging them — the extension detects and
+  labels these, but `IncomingDownload` in `listener.rs` doesn't carry `needsMux` /
+  `videoUrl` / `audioUrl` yet, and there's no muxing step (e.g. ffmpeg) in the backend.
+  Picking one of these qualities currently fails client-side with "URL is empty" before it
+  ever reaches the app. Only the four combined itags are actually downloadable today.
 
 ## Roadmap
 

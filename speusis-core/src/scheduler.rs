@@ -76,6 +76,7 @@ impl Scheduler {
             uploaded_bytes: None,
             seed_ratio: None,
             security_scan: None,
+            last_error: None,
         };
         let snapshot = task.clone();
         let handle: TaskHandle = Arc::new(Mutex::new(task));
@@ -133,6 +134,7 @@ impl Scheduler {
                 return Some(task.clone());
             }
             task.status = DownloadStatus::Queued;
+            task.last_error = None;
         }
         {
             let mut state = self.state.lock().await;
@@ -245,6 +247,7 @@ impl Scheduler {
                     let mut task = handle.lock().await;
                     if task.status != DownloadStatus::Paused {
                         task.status = DownloadStatus::Failed;
+                        task.last_error = Some("Download failed unexpectedly (internal error) - see crash.log".to_string());
                         let id = task.id.clone();
                         let retry_count = task.retry_count;
                         drop(task);
