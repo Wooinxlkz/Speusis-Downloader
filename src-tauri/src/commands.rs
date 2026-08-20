@@ -46,6 +46,9 @@ fn build_request(input: &DownloadInput, download_dir: String, segment_count: u32
         label: input.label.clone(),
         speed_limit: input.speed_limit,
         sequential: input.sequential,
+        // In-app "Add URL" downloads have no originating page/referer -
+        // only the browser extension's capture flow ever sets this.
+        referer: None,
     }
 }
 
@@ -109,6 +112,7 @@ pub async fn download_add(app: AppHandle, state: State<'_, AppState>, input: Dow
                 label: input.label.clone().or_else(|| Some("Torrent".into())),
                 speed_limit: None,
                 sequential: None,
+                referer: None,
             };
             let task = state.scheduler.add(request, input.start.unwrap_or(true)).await;
             speusis_core::debug_log::log(&format!("commands::download_add: magnet task id={}", task.id));
@@ -378,6 +382,7 @@ pub async fn add_torrent_from_path(app: &AppHandle, path_str: String) -> Result<
         label: Some("Torrent".into()),
         speed_limit: None,
         sequential: None,
+        referer: None,
     };
     let mut task = state.scheduler.add(request, true).await;
     task.torrent_files = Some(file_entries);
@@ -423,6 +428,7 @@ pub async fn download_add_torrent_file(
         label: Some("Torrent".into()),
         speed_limit: None,
         sequential: None,
+        referer: None,
     };
     // start=true: the engine begins immediately; user can deselect files via
     // torrent_select_file() while the download is running.

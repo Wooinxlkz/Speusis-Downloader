@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.51` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.52` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.51-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.52-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.52](#whats-new-in-v0552)
 - [What's new in v0.5.51](#whats-new-in-v0551)
 - [What Speusis is](#what-speusis-is)
 - [Feature matrix](#feature-matrix)
@@ -33,6 +34,33 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.52
+
+Fix release, backend + browser extension:
+
+- **Fixed the real cause of stream/video downloads always failing.** Extension-captured
+  video/stream URLs (HLS segments, DASH manifests, CDN video files) very often have
+  hotlink protection — the CDN rejects the request unless it carries a `Referer` header
+  matching the page it came from. The extension detected the page URL but never actually
+  sent it anywhere, and the backend had **no support anywhere** for a referer or custom
+  header on any request — not in the listener's JSON, not in `DownloadRequest`, not in the
+  HTTP client. The result: every such download's metadata probe (HEAD, then a Range-GET
+  fallback) got rejected with no Referer, and the task was marked **Failed** instantly
+  with an unresolvable size — exactly the "download started but instantly shows Failed"
+  symptom. Confirmed with a real compile (see below), not just read through: both the
+  browser extension (`download-dialog.js`, `service-worker.js`) and the desktop app's Rust
+  backend (`types.rs`, `listener.rs`, `network_manager.rs`, `http_direct_downloader.rs`)
+  now thread the originating page through as `Referer` on every request for the download
+  — the HEAD probe, the Range-GET fallback, and the actual segment/full-file transfers.
+- **Compile-verified, not just read through.** Installed a Rust 1.75 toolchain in the
+  build environment (working around this environment's dependency-resolution ceiling by
+  pinning ~15 transitive crates to MSRV-compatible versions) and ran a real `cargo check`
+  — `speusis-core`, the crate containing every line of the fix, compiles clean. `src-tauri`
+  hits the same toolchain ceiling via Tauri's own much larger dependency tree and wasn't
+  independently compiled; its changes are the same mechanical `referer: None` addition
+  already verified to compile in `speusis-core`.
+- Extension bumped to **v0.33.0** (was v0.32.0) to reflect this fix.
 
 ## What's new in v0.5.51
 

@@ -23,6 +23,14 @@ struct IncomingDownload {
     /// for this one download only — the setting itself is not changed.
     #[serde(rename = "saveDir")]
     save_dir: Option<String>,
+    /// The page the extension captured this URL from. A lot of video/
+    /// stream CDNs reject a request with no Referer or a mismatched one
+    /// (hotlink protection) - forwarding this as the Referer header on
+    /// every request for the download is what actually fixes those
+    /// captures failing instantly with an unresolvable size. See
+    /// DownloadRequest::referer for where this ends up.
+    #[serde(rename = "pageUrl")]
+    page_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -192,6 +200,7 @@ fn handle_add_download(
         label: Some(label.to_string()),
         speed_limit: None,
         sequential: None,
+        referer: incoming.page_url,
     };
 
     let task = runtime_handle.block_on(async move { scheduler.add(req, start_flag).await });

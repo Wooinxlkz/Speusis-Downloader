@@ -534,6 +534,8 @@ function updateStreamBadge() {
         type: "speusis-download", needsMux: true,
         videoUrl: info.videoUrl, audioUrl: info.audioUrl,
         filename: sanitize(title) + ".mp4", isStream: true,
+        pageTitle: title,
+        streams: [{ ...info, url: info.videoUrl }],
       });
       return;
     }
@@ -542,6 +544,12 @@ function updateStreamBadge() {
     chrome.runtime.sendMessage({
       type: "speusis-download", url: info.url,
       filename: sanitize(title) + ext, isStream: true,
+      pageTitle: title,
+      // Attach the actual detected stream (quality/type/url) instead of
+      // leaving `streams` empty - an empty streams array made the dialog
+      // fall back to its hardcoded "Best Quality / Medium Quality" HD/SD
+      // placeholder even though a real stream had already been detected.
+      streams: [info],
     });
   };
 

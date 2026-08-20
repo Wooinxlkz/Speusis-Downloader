@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.51 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.52 — Renderer ────────────────────────────────────── */
 "use strict";
 
 import { fmt, fmtSecs, displayName, escHtml, hexToRgba, fileTypeBadge, scanBadge, statusBadge, BTN_SVG } from "./utils.js";
@@ -14,7 +14,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.51";
+let _appVersion = "0.5.52";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */

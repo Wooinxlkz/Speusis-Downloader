@@ -89,7 +89,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === "speusis-start-download") {
-    sendToSpeusis(message.url, message.filename, message.later)
+    sendToSpeusis(message.url, message.filename, message.later, sender.tab?.url)
       .then(() => sendResponse({ ok: true }))
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
@@ -207,11 +207,18 @@ async function resolveYtCipherFormats(playerUrl, formats, tabId) {
 }
 
 /* ── Send to Speusis ───────────────────────────────────────────────── */
-async function sendToSpeusis(url, filename, later = false) {
+async function sendToSpeusis(url, filename, later = false, pageUrl = null) {
+  const body = { url, filename, start: !later };
+  // A lot of video/stream CDNs 403 a request with no Referer or a
+  // mismatched one (hotlink protection) - sending the originating page
+  // lets the app set a matching Referer on every request for this
+  // download. Without it, stream captures used to fail instantly with
+  // an unresolvable size ("Failed", size "—" in the main app).
+  if (pageUrl) body.pageUrl = pageUrl;
   const response = await fetch(SPEUSIS_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url, filename, start: !later }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("Speusis is not running or rejected the request");
   chrome.notifications.create({

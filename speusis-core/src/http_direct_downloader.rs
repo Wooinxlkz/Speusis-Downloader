@@ -95,15 +95,24 @@ impl HttpDirectDownloader {
     }
 
     /// Mirrors `resolveMetadata`: HEAD first, GET-with-Range(0-0) fallback,
-    /// same as the original's two-step probe.
+    /// same as the original's two-step probe. `referer`, when the download
+    /// came from the browser extension, gets sent on both requests -
+    /// without it a lot of stream/video CDNs 403 hotlink-protected URLs
+    /// on the very first request, which is what used to make every such
+    /// capture fail instantly with no size ever resolved.
     async fn resolve_metadata(
         &self,
         url: &str,
         token: &CancellationToken,
         auth: Option<&AuthCredential>,
+        referer: Option<&str>,
     ) -> anyhow::Result<Metadata> {
+        let mut head_extra = HashMap::new();
+        if let Some(r) = referer {
+            head_extra.insert("Referer".to_string(), r.to_string());
+        }
         crate::debug_log::log(&format!("resolve_metadata: HEAD {url}"));
-        match self.network.head(url, auth).await {
+        match self.network.head(url, &head_extra, auth).await {
             Ok(res) => {
                 crate::debug_log::log(&format!("resolve_metadata: HEAD status={}", res.status()));
                 if res.status().is_success() || res.status().as_u16() == 206 {
@@ -122,6 +131,9 @@ impl HttpDirectDownloader {
 
         let mut extra = HashMap::new();
         extra.insert("Range".to_string(), "bytes=0-0".to_string());
+        if let Some(r) = referer {
+            extra.insert("Referer".to_string(), r.to_string());
+        }
         crate::debug_log::log(&format!("resolve_metadata: falling back to GET Range:bytes=0-0 {url}"));
         match self.network.get(url, extra, auth).await {
             Ok(res) => {
@@ -314,8 +326,17 @@ impl HttpDirectDownloader {
         token: &CancellationToken,
         auth: Option<&AuthCredential>,
     ) -> anyhow::Result<()> {
-        let url = task.lock().await.request.url.clone();
-        let response = self.with_retry(task, || self.network.get(&url, HashMap::new(), auth)).await?;
+        let (url, referer) = {
+            let t = task.lock().await;
+            (t.request.url.clone(), t.request.referer.clone())
+        };
+        let response = self.with_retry(task, || {
+            let mut extra = HashMap::new();
+            if let Some(r) = &referer {
+                extra.insert("Referer".to_string(), r.clone());
+            }
+            self.network.get(&url, extra, auth)
+        }).await?;
 
         if response.status().as_u16() == 401 {
             anyhow::bail!("Authentication required (401) — add site credentials in Settings > Site Credentials");
@@ -375,12 +396,18 @@ impl HttpDirectDownloader {
         }
 
         let range_start = seg_start + already_received;
-        let url = task.lock().await.request.url.clone();
+        let (url, referer) = {
+            let t = task.lock().await;
+            (t.request.url.clone(), t.request.referer.clone())
+        };
         let range_header = format!("bytes={range_start}-{seg_end}");
         let response = self
             .with_retry(task, || {
                 let mut extra = HashMap::new();
                 extra.insert("Range".to_string(), range_header.clone());
+                if let Some(r) = &referer {
+                    extra.insert("Referer".to_string(), r.clone());
+                }
                 self.network.get(&url, extra, auth)
             })
             .await?;
@@ -546,8 +573,9 @@ impl HttpDirectDownloader {
         crate::debug_log::log(&format!("run: url={url} target_dir='{target_dir}' filename={requested_filename:?} segments={segment_count:?}"));
 
         let auth = self.resolve_auth(&url);
+        let referer = task.lock().await.request.referer.clone();
         crate::debug_log::log("run: calling resolve_metadata...");
-        let metadata = self.resolve_metadata(&url, token, auth.as_ref()).await?;
+        let metadata = self.resolve_metadata(&url, token, auth.as_ref(), referer.as_deref()).await?;
         crate::debug_log::log(&format!("run: resolve_metadata OK - size={} range_supported={} filename={:?}", metadata.size, metadata.range_supported, metadata.filename));
         let filename = FileManager::sanitize_filename(
             &requested_filename

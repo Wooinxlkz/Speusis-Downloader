@@ -226,6 +226,7 @@ fn main() {
                             label: None,
                             speed_limit: None,
                             sequential: None,
+                            referer: None,
                         };
                         state.scheduler.add(request, true).await;
                         // Silent by design, same as the tray staying quiet -
@@ -407,6 +408,7 @@ fn main() {
                         label: None,
                         speed_limit: None,
                         sequential: None,
+                        referer: None,
                     };
                     scheduler.add(request, input.start).await
                 })

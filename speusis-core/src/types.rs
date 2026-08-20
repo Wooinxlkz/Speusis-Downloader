@@ -31,6 +31,13 @@ pub struct DownloadRequest {
     #[serde(rename = "speedLimit")]
     pub speed_limit: Option<u64>,
     pub sequential: Option<bool>,
+    /// The page the URL was captured from (browser extension only). Sent
+    /// as the `Referer` header on every request for this download - a lot
+    /// of video/stream CDNs 403 a HEAD/GET with no Referer or a mismatched
+    /// one (hotlink protection), which used to make every such capture
+    /// fail instantly with an unresolvable size, before this existed to
+    /// send anywhere.
+    pub referer: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

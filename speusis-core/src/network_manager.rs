@@ -82,10 +82,19 @@ impl NetworkManager {
         Ok(())
     }
 
-    /// Mirrors `head(url, auth)`.
-    pub async fn head(&self, url: &str, auth: Option<&AuthCredential>) -> anyhow::Result<Response> {
+    /// Mirrors `head(url, auth)`. Now also takes extra headers (mainly for
+    /// Referer - see http_direct_downloader.rs's resolve_metadata) since
+    /// this used to be the one request type in the whole client that could
+    /// never carry any, which mattered because it's always the *first*
+    /// request made for a download.
+    pub async fn head(
+        &self,
+        url: &str,
+        extra_headers: &HashMap<String, String>,
+        auth: Option<&AuthCredential>,
+    ) -> anyhow::Result<Response> {
         Self::validate_url(url)?;
-        let headers = Self::build_headers(&HashMap::new(), auth)?;
+        let headers = Self::build_headers(extra_headers, auth)?;
         match self.direct_client.head(url).headers(headers.clone()).send().await {
             Ok(response) if !Self::should_retry_with_proxy(response.status()) => Ok(response),
             Ok(_) | Err(_) => Ok(self.proxy_client.head(url).headers(headers).send().await?),

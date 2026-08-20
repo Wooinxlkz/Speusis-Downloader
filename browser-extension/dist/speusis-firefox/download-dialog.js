@@ -157,6 +157,7 @@ function renderFileIcon(filename, isYT) {
 /* ── Quality rows ──────────────────────────────────────────────── */
 let _pendingYtQuality="";
 let _pendingMux=null; // {videoUrl, audioUrl} when the chosen row needs backend muxing
+let _pendingPageUrl=null; // the tab this download was captured from - sent as Referer so hotlink-protected CDNs (most video/stream URLs) don't 403
 function chooseQuality(row, fallbackUrl, pageTitle) {
   const dlUrl   = row.dataset.url||fallbackUrl;
   const quality = row.dataset.quality||row.dataset.type||"";
@@ -198,6 +199,14 @@ function buildQualityRows(data) {
     document.getElementById("btnVideoDownload")?.addEventListener("click",()=>{
       const r=qualityList.querySelector(".vq-row"); if(r) chooseQuality(r,url,pageTitle);
     });
+    // Only one real stream was detected (the common case: clicking a
+    // single quality badge, or a page with just one video source) -
+    // skip the picker screen and go straight to the final Save-As
+    // screen instead of making the user click through a 1-item list.
+    if (sorted.length === 1) {
+      const onlyRow = qualityList.querySelector(".vq-row");
+      if (onlyRow) chooseQuality(onlyRow, url, pageTitle);
+    }
   } else if (isYT) {
     qualityList.innerHTML=`<div style="padding:18px 12px;text-align:center;color:#a1a1aa;font-size:12px;line-height:1.6">
       <div style="font-size:22px;margin-bottom:8px">▶</div>
@@ -251,6 +260,8 @@ async function init() {
     chrome.runtime.sendMessage({type:"speusis-get-dialog-data"},d=>res(d||null))
   );
   if (!data) { setStatus("No download data received. Close this window.","error"); return; }
+
+  _pendingPageUrl = data.pageUrl || null;
 
   const url=data.url||"", filename=data.suggestedFilename||guessFilename(url);
   const isYT=data.isYouTube||isYouTubeUrl(url), isTor=isTorrentUrl(url);
@@ -377,6 +388,7 @@ async function doDownload(url, filename, later, ytQuality) {
   try {
     const body={url, filename:filename||undefined, start:!later};
     if(ytQuality) body.ytQuality=ytQuality;
+    if(_pendingPageUrl) body.pageUrl=_pendingPageUrl;
     if(_pendingMux){
       // Two-source download — video-only + audio-only streams that the
       // desktop app's Rust backend needs to fetch and mux into one file.
