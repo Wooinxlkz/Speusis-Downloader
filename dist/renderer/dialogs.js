@@ -86,6 +86,11 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
     if (!map || !map.totalSegments) {
       grid.innerHTML = ""; stats.innerHTML = "";
       grid.classList.add("hidden"); stats.classList.add("hidden");
+      // Always reset to the "no live data" copy here - openSegmentMapDialog's
+      // no-selection branch below reuses this same element with different
+      // text, so this render path has to restore the default wording itself
+      // rather than assume it was never changed.
+      empty.textContent = "No live segment data yet — segment info is only available while a multi-segment download is actively running.";
       empty.classList.remove("hidden");
       if (summary) summary.textContent = "— segments";
       if (speedEl) speedEl.textContent = "—";
@@ -119,17 +124,36 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
   }
 
   async function openSegmentMapDialog(id) {
-    const task = taskStore.get(id);
+    const task = id ? taskStore.get(id) : null;
+    document.getElementById("btnCloseSegMap").onclick = () => { stopSegMapPoll(); closePanel(segmentMapDialog); };
+
+    // Previously this bailed out silently on a missing/stale selection -
+    // a status-bar line easy to miss behind an open Settings panel, which
+    // read to users as "the dialog just doesn't show up". Now the card
+    // always opens; it just explains itself when there's nothing to show.
     if (!id || !task) {
+      stopSegMapPoll();
+      document.getElementById("segMapName").textContent = "";
+      document.getElementById("segMapGrid").innerHTML = "";
+      document.getElementById("segMapGrid").classList.add("hidden");
+      document.getElementById("segMapStats").innerHTML = "";
+      document.getElementById("segMapStats").classList.add("hidden");
+      document.getElementById("segMapSummary").textContent = "— segments";
+      document.getElementById("segMapSpeed").textContent = "—";
+      document.getElementById("segMapActive").textContent = "NO LIVE MAP";
+      const empty = document.getElementById("segMapEmpty");
+      empty.textContent = "No download selected — pick one in the list, then open View map again.";
+      empty.classList.remove("hidden");
+      openPanel(segmentMapDialog, null);
       setStatus("Select a download first to view its segment map");
       return;
     }
-    document.getElementById("segMapName").textContent = task ? displayName(task) : "";
+
+    document.getElementById("segMapName").textContent = displayName(task);
     await renderSegmentMap(id);
     openPanel(segmentMapDialog, id);
     stopSegMapPoll();
     _segMapPoll = setInterval(() => renderSegmentMap(id), 1500);
-    document.getElementById("btnCloseSegMap").onclick = () => { stopSegMapPoll(); closePanel(segmentMapDialog); };
   }
   document.querySelectorAll("#segMapControls [data-segment-count]").forEach(button => {
     button.addEventListener("click", async () => {

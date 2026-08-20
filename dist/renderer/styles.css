@@ -23,7 +23,11 @@
   --row-sel:    #17342a;
   --sb-bg:      #0a0a0a;
   --shadow:     0 20px 60px rgba(0,0,0,0.7);
-  font-family:  "Space Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  /* Referenced by a couple of rules (.rss-btn, #cbUrl) that never had
+     this defined, so their `font: ... var(--font-mono)` shorthand was
+     silently invalid and fell back to inheritance the whole time. */
+  --font-mono:  "Space Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-family:  var(--font-mono);
   font-size:    12px;
   letter-spacing: 0.01em;
 }
@@ -191,7 +195,11 @@ body.native-panel-window .panel-box {
 }
 .dialog-close svg { width:16px; height:16px; }
 .dialog-close:hover {
-  color:#fff; background:rgba(248,113,113,.2); border-color:rgba(248,113,113,.45);
+  /* was color:#fff on a translucent red - readable in the dark theme's
+     near-black background, but a white icon over that same faint red
+     wash on the light theme's white panel is nearly invisible. #f87171
+     (the app's standard "danger" red) holds contrast in both themes. */
+  color:#f87171; background:rgba(248,113,113,.2); border-color:rgba(248,113,113,.45);
 }
 .dialog-close:focus-visible { outline:2px solid var(--accent-hl); outline-offset:1px; }
 .dialog-titlebar > svg:not(.dialog-title-icon) { flex-shrink:0; }
@@ -411,16 +419,24 @@ body.native-panel-window .panel-box {
   font-size:12px; color:var(--text); user-select:none;
 }
 .toggle-wrap input[type="checkbox"] { display:none; }
+/* Off-state track used to be var(--border), which is #dcdcd8 in the
+   light theme - a white knob on that is almost no contrast at all.
+   var(--dim) is meaningfully darker in both themes and paired with a
+   track border so the whole control stays readable regardless of
+   theme or accent color. */
 .toggle-track {
-  width:34px; height:18px; background:var(--border); border-radius:9px;
-  position:relative; flex-shrink:0; transition:background .2s;
+  width:34px; height:18px; background:var(--dim); border:1px solid var(--border); border-radius:9px;
+  position:relative; flex-shrink:0; transition:background .2s, border-color .2s;
 }
 .toggle-track::after {
   content:""; position:absolute; width:14px; height:14px; background:#fff;
-  border-radius:50%; top:2px; left:2px; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.3);
+  border-radius:50%; top:1px; left:1px; transition:left .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.12);
 }
-.toggle-wrap input:checked + .toggle-track { background:var(--accent); }
+.toggle-wrap input:checked + .toggle-track { background:var(--accent); border-color:var(--accent); }
 .toggle-wrap input:checked + .toggle-track::after { left:18px; }
+.toggle-wrap:hover .toggle-track { border-color:var(--muted); }
+.toggle-wrap input:checked:hover + .toggle-track { border-color:var(--accent-hl); }
 
 /* ── SCHEDULER PANEL ───────────────────────────────────────────── */
 .sched-section {
@@ -699,7 +715,7 @@ body.tbl-column-resizing, body.tbl-column-resizing * {
 .rb-stop:hover  { border-color:#f87171; }
 .rb-retry:hover { border-color:#60a5fa; }
 .rb-del:hover   { border-color:#f87171; }
-.rb-preview:hover { border-color:#e8e8e8; }
+.rb-preview:hover { border-color:var(--text); } /* was a hardcoded #e8e8e8 (the dark theme's own --text) - invisible against the light theme's near-white background */
 .row-action-menu { position:relative; display:flex; align-items:center; }
 .row-more {
   display:flex; align-items:center; justify-content:center;

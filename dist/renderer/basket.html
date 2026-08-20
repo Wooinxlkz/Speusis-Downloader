@@ -1,13 +1,237 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Speusis Basket</title>
-    <script type="module" crossorigin src="/assets/basket-Bqsy4QVS.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-Dj-_E67t.js">
-    <link rel="stylesheet" crossorigin href="/assets/jsx-runtime-Bw8pc4ZZ.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <title>Speusis Basket</title>
+  <script src="./downloadManagerBridge.js"></script>
+  <style>
+    /* Same variable scheme as the main app's styles.css, so this window
+       actually looks like part of Speusis instead of a different app
+       glued on the side. Previously this had its own hardcoded navy/blue
+       palette and Segoe UI, unrelated to the rest of the UI and blind to
+       the user's theme/accent settings - that mismatch was the "basket
+       looks bad/broken" issue. Values here mirror :root and
+       body[data-theme="light"] in styles.css; keep the two in sync if
+       either changes. */
+    :root {
+      --bg:         #0f0f0f; --panel:  #191919; --panel2: #232323;
+      --border:     #2c2c2c; --text:   #e8e8e8; --muted:  #909090; --dim: #505050;
+      --accent:     #6ee7b7; --accent-hl: #86efac;
+      --shadow:     0 20px 60px rgba(0,0,0,0.7);
+      --font-mono:  "Space Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    }
+    html[data-theme="light"] {
+      --bg: #f4f4f2; --panel: #ffffff; --panel2: #ececea;
+      --border: #dcdcd8; --text: #17181a; --muted: #6b6b6b; --dim: #a0a0a0;
+    }
+    html[data-accent="green"]  { --accent:#6ee7b7; --accent-hl:#86efac; }
+    html[data-accent="blue"]   { --accent:#60a5fa; --accent-hl:#93c5fd; }
+    html[data-accent="purple"] { --accent:#a78bfa; --accent-hl:#c4b5fd; }
+    html[data-accent="orange"] { --accent:#fb923c; --accent-hl:#fcd34d; }
+    html[data-accent="red"]    { --accent:#f87171; --accent-hl:#fca5a5; }
+    html[data-accent="teal"]   { --accent:#22d3ee; --accent-hl:#67e8f9; }
+    html[data-accent="slate"]  { --accent:#e8e8e8; --accent-hl:#c0c0c0; }
+
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html, body {
+      width:100%; height:100%;
+      background:var(--panel); color:var(--text);
+      font-family:var(--font-mono); font-size:12px; letter-spacing:.01em;
+      user-select:none; overflow:hidden;
+      border-radius:10px; border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      display:flex; flex-direction:column;
+    }
+
+    /* Only THIS strip drags the window - the drop zone below is
+       explicitly no-drag, which is what actually lets HTML5
+       dragover/drop events fire there at all. Previously the whole
+       body had app-region:drag, which silently ate every drop attempt
+       because the OS treated it as "move the window", not "drop
+       here" - that's the real reason dragging links onto the old
+       basket never worked. (Kept from the prior fix - still correct.) */
+    #dragHandle {
+      -webkit-app-region: drag;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:9px 8px 9px 12px; flex-shrink:0;
+      background:var(--panel2); border-bottom:1px solid var(--border);
+    }
+    #dragHandle .title { display:flex; align-items:center; gap:8px; color:var(--muted); font-weight:700; letter-spacing:.03em; font-size:11px; text-transform:uppercase; }
+    #dragHandle img {
+      width:16px; height:16px; border-radius:50%;
+      box-shadow:0 0 0 1px rgba(110,231,183,.22), 0 0 10px rgba(110,231,183,.12);
+    }
+    #closeBtn {
+      -webkit-app-region: no-drag;
+      background:none; border:1px solid transparent; cursor:pointer;
+      color:var(--muted); font-size:14px; line-height:1; padding:4px 7px; border-radius:5px;
+      transition:color .12s, background .12s, border-color .12s;
+    }
+    #closeBtn:hover { color:#f87171; background:rgba(248,113,113,.14); border-color:rgba(248,113,113,.35); }
+
+    #content {
+      -webkit-app-region: no-drag;
+      flex:1; min-height:0;
+      display:flex; flex-direction:column;
+    }
+
+    #dropZone {
+      flex:1;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:10px;
+      cursor:pointer; transition:background .15s, border-color .15s;
+      border:2px dashed transparent; margin:10px; border-radius:8px;
+      padding:16px;
+    }
+    #dropZone.over { background:rgba(110,231,183,.10); border-color:var(--accent); }
+    #dropZone:hover { background:var(--panel2); }
+    #icon {
+      width:48px; height:48px; border-radius:50%; object-fit:cover;
+      box-shadow:0 0 0 1px rgba(110,231,183,.22), 0 0 16px rgba(110,231,183,.14);
+    }
+    #label { color:var(--muted); text-align:center; line-height:1.55; font-size:11.5px; }
+    #label strong { color:var(--text); display:block; font-size:13px; margin-bottom:3px; letter-spacing:.01em; }
+    #status { color:var(--accent); font-size:11px; min-height:16px; text-align:center; font-weight:700; }
+
+    #urlForm {
+      display:none; flex:1; flex-direction:column;
+      align-items:stretch; justify-content:center;
+      gap:10px; padding:16px;
+    }
+    #urlForm.active { display:flex; }
+    #urlInput {
+      width:100%; background:var(--bg); border:1px solid var(--border);
+      border-radius:6px; color:var(--text); font-size:12px;
+      padding:9px 10px; outline:none; font-family:inherit;
+    }
+    #urlInput:focus { border-color:var(--accent); }
+    #urlActions { display:flex; gap:8px; }
+    #urlActions button {
+      flex:1; font-size:11px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+      padding:8px 0; border-radius:6px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--text); cursor:pointer; font-family:inherit;
+      transition:background .12s, border-color .12s, filter .12s;
+    }
+    #urlActions button:hover { border-color:var(--muted); background:var(--panel2); }
+    #urlAdd { background:var(--accent) !important; border-color:var(--accent) !important; color:#07110e !important; }
+    #urlAdd:hover { filter:brightness(1.1); background:var(--accent) !important; }
+
+    #recent { flex-shrink:0; max-height:110px; overflow-y:auto; border-top:1px solid var(--border); padding:8px 10px; background:var(--panel2); }
+    #recent:empty { display:none; padding:0; border-top:none; }
+    .recent-item { font-size:10.5px; color:var(--muted); padding:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-item.ok { color:var(--accent-hl); }
+    .recent-item.fail { color:#f87171; }
+  </style>
+</head>
+<body>
+  <div id="dragHandle">
+    <div class="title">
+      <img src="./speusis-icon.png" alt="" onerror="this.style.display='none'"/>
+      <span>Speusis Basket</span>
+    </div>
+    <button id="closeBtn" title="Close basket">&times;</button>
+  </div>
+
+  <div id="content">
+    <div id="dropZone">
+      <img id="icon" src="./speusis-icon.png" alt="Speusis" onerror="this.style.display='none'"/>
+      <div id="label"><strong>Drop links here</strong>Drag a link from your browser,<br>or click to paste a URL</div>
+      <div id="status"></div>
+    </div>
+    <div id="urlForm">
+      <input id="urlInput" type="text" placeholder="Paste URL…" autocomplete="off" spellcheck="false">
+      <div id="urlActions">
+        <button id="urlCancel">Cancel</button>
+        <button id="urlAdd">Add</button>
+      </div>
+    </div>
+    <div id="recent"></div>
+  </div>
+
+  <script>
+    const api = window.downloadManager;
+    const zone = document.getElementById("dropZone");
+    const status = document.getElementById("status");
+    const closeBtn = document.getElementById("closeBtn");
+    const recent = document.getElementById("recent");
+
+    // Match whatever theme/accent the user has set in the main app's
+    // Settings, instead of always rendering in one fixed palette
+    // regardless of what the rest of the app looks like.
+    (async function applyAppearance() {
+      try {
+        const s = await api?.getSettings?.();
+        if (!s) return;
+        const sysDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+        const resolved = s.themeMode === "system" ? (sysDark ? "dark" : "light") : s.themeMode;
+        document.documentElement.dataset.theme = resolved || "dark";
+        document.documentElement.dataset.accent = s.accentColor || "green";
+      } catch { /* fall back to the default dark/green look above */ }
+    })();
+
+    closeBtn.addEventListener("click", () => api?.closeBasket?.());
+
+    function pushRecent(text, ok) {
+      const el = document.createElement("div");
+      el.className = "recent-item " + (ok ? "ok" : "fail");
+      el.textContent = (ok ? "\u2713 " : "\u2717 ") + text;
+      recent.prepend(el);
+      while (recent.children.length > 5) recent.removeChild(recent.lastChild);
+    }
+
+    function addUrl(url) {
+      const trimmed = (url || "").trim();
+      if (!trimmed) return;
+      status.textContent = "Adding…";
+      api?.addDownload?.({ url: trimmed, start: true }).then(() => {
+        status.textContent = "Added!";
+        pushRecent(trimmed, true);
+        setTimeout(() => { status.textContent = ""; }, 1500);
+      }).catch(() => {
+        status.textContent = "Failed";
+        pushRecent(trimmed, false);
+        setTimeout(() => { status.textContent = ""; }, 1500);
+      });
+    }
+
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+    zone.addEventListener("drop", e => {
+      e.preventDefault();
+      zone.classList.remove("over");
+      const url = e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text/plain") || "";
+      addUrl(url);
+    });
+
+    zone.addEventListener("click", () => {
+      zone.style.display = "none";
+      const form = document.getElementById("urlForm");
+      const input = document.getElementById("urlInput");
+      form.classList.add("active");
+      input.value = "";
+      input.focus();
+    });
+
+    function closeUrlForm() {
+      document.getElementById("urlForm").classList.remove("active");
+      zone.style.display = "flex";
+    }
+
+    function submitUrl() {
+      const input = document.getElementById("urlInput");
+      const url = input.value.trim();
+      if (!url) return;
+      closeUrlForm();
+      addUrl(url);
+    }
+
+    document.getElementById("urlCancel").addEventListener("click", closeUrlForm);
+    document.getElementById("urlAdd").addEventListener("click", submitUrl);
+    document.getElementById("urlInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitUrl();
+      if (e.key === "Escape") closeUrlForm();
+    });
+  </script>
+</body>
 </html>

@@ -1,4 +1,4 @@
-/* ─── Speusis v0.5.50 — Renderer ────────────────────────────────────── */
+/* ─── Speusis v0.5.51 — Renderer ────────────────────────────────────── */
 "use strict";
 
 import { fmt, fmtSecs, displayName, escHtml, hexToRgba, fileTypeBadge, scanBadge, statusBadge, BTN_SVG } from "./utils.js";
@@ -14,7 +14,7 @@ const nativePanelTaskId = nativePanelQuery.get("id");
 const isNativePanelWindow = Boolean(nativePanelName);
 if (isNativePanelWindow) document.body.classList.add("native-panel-window");
 /* ── App version (populated async at startup) ───────────────────── */
-let _appVersion = "0.5.50";
+let _appVersion = "0.5.51";
 api.getVersion().then(v => { if (v) { _appVersion = v; updateRegBadge(); } }).catch(() => {});
 
 /* ── State ─────────────────────────────────────────────────────── */
@@ -1781,8 +1781,12 @@ defaultSegmentsEl?.addEventListener("change", async e => {
   setStatus("Segments per download set to " + v + " (applies to new downloads)");
 });
 document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
-  if (selectedId) openSegmentMapDialog(selectedId);
-  else setStatus("Select a download first to view its segment map");
+  // openSegmentMapDialog() already handles a missing/null selectedId by
+  // opening the dialog with an explanatory empty state (see dialogs.js) -
+  // it must always be called so the card actually appears, instead of
+  // this handler swallowing the no-selection case before the dialog ever
+  // gets a chance to open.
+  openSegmentMapDialog(selectedId);
 });
 downloadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
@@ -1957,16 +1961,46 @@ async function loadDownloads() {
   renderAll();
 }
 
+/* Each startup step used to run in one unguarded await chain, and the
+ * only error handling anywhere was `init().catch(() => {})` at the
+ * bottom of this file - so a single throw in any one step (a null
+ * element, a settings shape mismatch, anything) silently killed every
+ * step after it, with zero feedback anywhere the user could see it.
+ * That's the kind of bug that looks like "the app just doesn't show
+ * X" for reasons that have nothing to do with X's own code. Each step
+ * below is now isolated: a failure is logged and, for the steps the
+ * rest of startup actually depends on, surfaced in the status bar,
+ * but it can no longer prevent the remaining steps from running. */
 async function init() {
-  await refreshSettings();
-  await buildCatTree();
-  await loadDownloads();
-  await initializeNativePanel();
-  installNativePanelSizing();
-  drawSpeedChart(0);
-  initUpdateBanner();
-  initAutoUpdatePrompt();
-  initClipboardMonitor();
+  const criticalSteps = [
+    ["settings", refreshSettings],
+    ["category tree", buildCatTree],
+    ["download list", loadDownloads],
+    ["window setup", initializeNativePanel],
+  ];
+  for (const [label, fn] of criticalSteps) {
+    try {
+      await fn();
+    } catch (err) {
+      console.error(`[init] ${label} failed to load:`, err);
+      setStatus(`Startup warning: ${label} failed to load`);
+    }
+  }
+
+  const secondarySteps = [
+    ["panel sizing", installNativePanelSizing],
+    ["speed chart", () => drawSpeedChart(0)],
+    ["update banner", initUpdateBanner],
+    ["auto-update prompt", initAutoUpdatePrompt],
+    ["clipboard monitor", initClipboardMonitor],
+  ];
+  for (const [label, fn] of secondarySteps) {
+    try {
+      await fn();
+    } catch (err) {
+      console.error(`[init] ${label} failed to start:`, err);
+    }
+  }
 }
 
 /* ── Update notification banner ──────────────────────────────────── */
@@ -2192,4 +2226,4 @@ function initClipboardMonitor() {
   });
 }
 
-init().catch(() => {});
+init().catch((err) => console.error("[init] fatal error:", err));
