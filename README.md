@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.53` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.54` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.53-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.54-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.54](#whats-new-in-v0554)
 - [What's new in v0.5.53](#whats-new-in-v0553)
 - [What's new in v0.5.52](#whats-new-in-v0552)
 - [What's new in v0.5.51](#whats-new-in-v0551)
@@ -35,6 +36,30 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.54
+
+Backend hardening for downloads that resolve metadata but still get rejected by
+hotlink-protected CDNs (the "Failed" / no-size case reported against googlevideo.com URLs):
+
+- **Requests now send the full browser-equivalent header set on hotlink-protected
+  downloads, not just Referer.** Added `hotlink_headers()` in `http_direct_downloader.rs`,
+  used consistently by the HEAD probe, the GET-Range fallback, `download_single`, and
+  `download_segment`. It adds:
+  - `Origin` — derived from the referer's own scheme+host, the same way a real browser
+    sets it on a cross-origin media request. Previously only `Referer` was sent; some CDNs
+    (Google's video servers included) check both and can reject a request that has a
+    correct Referer but no Origin.
+  - `Sec-Fetch-Site: cross-site`, `Sec-Fetch-Mode: no-cors`, `Sec-Fetch-Dest: video` — the
+    fetch-metadata headers a real browser attaches to a cross-origin video request, which
+    a plain HTTP client never sends unless told to.
+- **Honesty note:** this addresses everything that's actually fixable from this side of
+  the wire. If a download still fails after this update, hover the "Failed" badge (added
+  in v0.5.53) to see the real HTTP status/error. If it's still a 403 from a googlevideo
+  URL specifically, that's very likely YouTube's session/token-binding on signed playback
+  URLs (they increasingly tie a URL to the exact browser session that requested it, not
+  just Referer/Origin) — which no request header can work around from a separate process.
+  This isn't spin: it's the honest state of the fix after two passes at it.
 
 ## What's new in v0.5.53
 

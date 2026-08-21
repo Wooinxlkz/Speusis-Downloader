@@ -94,6 +94,32 @@ impl HttpDirectDownloader {
         Some(AuthCredential { username: cred.username, password: cred.password })
     }
 
+    /// Builds the full set of headers a real browser sends on a
+    /// cross-origin media request when hotlink protection is in play -
+    /// not just Referer. Many CDNs (Google's video servers among them)
+    /// also check `Origin` and the `Sec-Fetch-*` triad; a request with a
+    /// correct Referer but missing these can still get rejected as
+    /// non-browser traffic. Origin is derived from the referer's own
+    /// scheme+host, same as a real browser would send it.
+    fn hotlink_headers(referer: Option<&str>) -> HashMap<String, String> {
+        let mut h = HashMap::new();
+        let Some(r) = referer else { return h };
+        h.insert("Referer".to_string(), r.to_string());
+        if let Ok(parsed) = reqwest::Url::parse(r) {
+            if let Some(host) = parsed.host_str() {
+                let origin = match parsed.port() {
+                    Some(p) => format!("{}://{}:{}", parsed.scheme(), host, p),
+                    None => format!("{}://{}", parsed.scheme(), host),
+                };
+                h.insert("Origin".to_string(), origin);
+            }
+        }
+        h.insert("Sec-Fetch-Site".to_string(), "cross-site".to_string());
+        h.insert("Sec-Fetch-Mode".to_string(), "no-cors".to_string());
+        h.insert("Sec-Fetch-Dest".to_string(), "video".to_string());
+        h
+    }
+
     /// Mirrors `resolveMetadata`: HEAD first, GET-with-Range(0-0) fallback,
     /// same as the original's two-step probe. `referer`, when the download
     /// came from the browser extension, gets sent on both requests -
@@ -107,10 +133,7 @@ impl HttpDirectDownloader {
         auth: Option<&AuthCredential>,
         referer: Option<&str>,
     ) -> anyhow::Result<Metadata> {
-        let mut head_extra = HashMap::new();
-        if let Some(r) = referer {
-            head_extra.insert("Referer".to_string(), r.to_string());
-        }
+        let head_extra = Self::hotlink_headers(referer);
         crate::debug_log::log(&format!("resolve_metadata: HEAD {url}"));
         match self.network.head(url, &head_extra, auth).await {
             Ok(res) => {
@@ -129,11 +152,8 @@ impl HttpDirectDownloader {
             anyhow::bail!("Aborted");
         }
 
-        let mut extra = HashMap::new();
+        let mut extra = Self::hotlink_headers(referer);
         extra.insert("Range".to_string(), "bytes=0-0".to_string());
-        if let Some(r) = referer {
-            extra.insert("Referer".to_string(), r.to_string());
-        }
         crate::debug_log::log(&format!("resolve_metadata: falling back to GET Range:bytes=0-0 {url}"));
         match self.network.get(url, extra, auth).await {
             Ok(res) => {
@@ -331,10 +351,7 @@ impl HttpDirectDownloader {
             (t.request.url.clone(), t.request.referer.clone())
         };
         let response = self.with_retry(task, || {
-            let mut extra = HashMap::new();
-            if let Some(r) = &referer {
-                extra.insert("Referer".to_string(), r.clone());
-            }
+            let extra = Self::hotlink_headers(referer.as_deref());
             self.network.get(&url, extra, auth)
         }).await?;
 
@@ -403,11 +420,8 @@ impl HttpDirectDownloader {
         let range_header = format!("bytes={range_start}-{seg_end}");
         let response = self
             .with_retry(task, || {
-                let mut extra = HashMap::new();
+                let mut extra = Self::hotlink_headers(referer.as_deref());
                 extra.insert("Range".to_string(), range_header.clone());
-                if let Some(r) = &referer {
-                    extra.insert("Referer".to_string(), r.clone());
-                }
                 self.network.get(&url, extra, auth)
             })
             .await?;
