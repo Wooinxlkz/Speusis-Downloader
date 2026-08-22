@@ -107,6 +107,22 @@ impl Scheduler {
         tasks
     }
 
+    /// Returns the shared, mutable handle for a task by id (same Arc the
+    /// downloader holds), so a caller outside the normal downloader trait
+    /// (the streamed-upload listener route) can drive a task's lifecycle
+    /// directly - update status/progress fields and have it be visible to
+    /// the UI immediately, the same way pause()/resume() already do.
+    pub async fn task_handle(&self, id: &str) -> Option<TaskHandle> {
+        self.state.lock().await.tasks.get(id).cloned()
+    }
+
+    /// Gives external callers (the listener's streamed-upload route) a way
+    /// to emit progress/completion/failure events for a task it's driving
+    /// itself, without needing its own separate EventBus instance.
+    pub fn event_bus(&self) -> EventBus {
+        self.event_bus.clone()
+    }
+
     /// Mirrors `pause(id)`: flips status to Paused BEFORE cancelling, so the
     /// downloader's in-flight loop (which shares this same Arc<Mutex<..>>)
     /// observes "paused" rather than treating the abort as a failure.

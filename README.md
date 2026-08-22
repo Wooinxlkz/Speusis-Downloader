@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.54` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.55` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.54-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.55-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.55](#whats-new-in-v0555)
 - [What's new in v0.5.54](#whats-new-in-v0554)
 - [What's new in v0.5.53](#whats-new-in-v0553)
 - [What's new in v0.5.52](#whats-new-in-v0552)
@@ -36,6 +37,39 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.55
+
+**The actual fix for googlevideo.com (and similar CDNs) always returning 403.**
+Every version through v0.5.54 tried harder request headers (Referer, Origin,
+Sec-Fetch-*) on the app's own HEAD/GET requests — none of it worked, because
+the rejection isn't at the HTTP header level. It's near-certainly TLS/HTTP
+fingerprinting: Google's edge servers can tell a Rust `reqwest` client's TLS
+handshake and HTTP/2 framing apart from a real browser's, no matter what
+headers ride on top of it. Confirmed by a full debug.log spanning v0.5.2
+through v0.5.54 — every single googlevideo capture 403'd on both HEAD and
+GET-Range, on every version, while every plain file download succeeded.
+
+New architecture, paired with extension v0.39.0:
+- Added `POST /downloads/stream` — the browser extension now fetches the
+  video itself (from its own privileged context, using Chrome's real network
+  stack, which succeeds where the app's own request never could) and streams
+  the response body straight to this endpoint as it downloads, instead of
+  handing the app a URL to re-fetch independently. Same task lifecycle, same
+  `.part` file → finalize flow, same progress/events as every other
+  download — this is a new *transport* into the existing pipeline, not a
+  parallel one.
+- The local listener now handles each request on its own thread instead of
+  processing them one at a time on a single background thread. This was
+  harmless before (requests were all quick), but a large video stream can
+  now hold a connection open for as long as the transfer takes — without
+  this change that would've frozen health checks and every other download
+  request for the whole duration.
+- Scope: this covers direct, single-file video/stream captures (the
+  reported case — combined-itag YouTube streams, and equivalent CDNs).
+  Adaptive/muxed quality picks (anything needing a separate video+audio
+  merge) are unaffected by this change and remain a known gap — see Known
+  limitations.
 
 ## What's new in v0.5.54
 
@@ -383,6 +417,11 @@ Being direct here, because overselling this is how people get burned:
 
 ## Known limitations
 
+- **v0.5.55's `/downloads/stream` route has not been compiled or run yet** -
+  it was written and hand-checked against the exact existing types/APIs in
+  this codebase, but there's no Rust toolchain in the environment it was
+  written in. Run `cargo build` (or `cargo check`) before relying on this
+  build; fix whatever a real compiler catches that hand-review couldn't.
 - **Windows-only** in this release (NSIS/MSI packaging, Windows Defender integration for
   the security scanner). macOS/Linux packaging is not currently configured in
   `tauri.conf.json`.
