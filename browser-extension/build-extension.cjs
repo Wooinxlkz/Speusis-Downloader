@@ -50,6 +50,17 @@ const TARGETS = [
   },
 ];
 
+/* Named per-browser copies of the Chromium build. Content is byte-identical
+   to speusis-chromium (same manifest, same engine) - these exist purely so
+   each browser has its own clearly-labeled zip to upload/reference, since
+   "one file, which browser is this for" questions come up otherwise. */
+const CHROMIUM_ALIASES = [
+  { name: "speusis-chrome", label: "Chrome" },
+  { name: "speusis-edge",   label: "Edge" },
+  { name: "speusis-brave",  label: "Brave" },
+  { name: "speusis-arc",    label: "Arc" },
+];
+
 /* ── Helpers ───────────────────────────────────────────────────── */
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -102,12 +113,30 @@ for (const target of TARGETS) {
   console.log(`  Done ✓`);
 }
 
+/* ── Named Chromium aliases (Chrome / Edge / Brave / Arc) ─────────── */
+const chromiumDir = path.join(DIST, "speusis-chromium");
+for (const alias of CHROMIUM_ALIASES) {
+  const outDir = path.join(DIST, alias.name);
+  ensureDir(outDir);
+  console.log(`\nCopying Chromium build → dist/${alias.name}/ (${alias.label})`);
+  for (const file of fs.readdirSync(chromiumDir)) {
+    fs.copyFileSync(path.join(chromiumDir, file), path.join(outDir, file));
+  }
+  zipDir(outDir, path.join(DIST, `${alias.name}.zip`));
+  console.log(`  Done ✓`);
+}
+
 console.log(`
 ┌─────────────────────────────────────────────────────┐
 │  Speusis Downloader Extension Build Complete                     │
 ├─────────────────────────────────────────────────────┤
-│  Chrome / Edge / Opera / Brave  →  dist/speusis-chromium/  │
-│  Firefox 109+                   →  dist/speusis-firefox/   │
+│  Chrome  →  dist/speusis-chrome.zip                  │
+│  Edge    →  dist/speusis-edge.zip                    │
+│  Brave   →  dist/speusis-brave.zip                    │
+│  Arc     →  dist/speusis-arc.zip                     │
+│  (all four are identical Chromium/MV3 builds,        │
+│   dist/speusis-chromium.zip kept too, same content)   │
+│  Firefox 109+ →  dist/speusis-firefox.zip             │
 ├─────────────────────────────────────────────────────┤
 │  Safari                                             │
 │    Open dist/speusis-chromium/ in Xcode via:          │

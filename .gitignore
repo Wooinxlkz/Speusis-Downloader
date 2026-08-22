@@ -1,22 +1,23 @@
-# Node
+# Build output / dependencies
 node_modules/
-
-# Tauri / Rust build output
+dist/
+target/
 src-tauri/target/
-speusis-core/target/
+browser-extension/dist/
 
-# Rust lock files
-src-tauri/Cargo.lock
-speusis-core/Cargo.lock
-
-# Environment / secrets
+# Secrets - NEVER commit
 .env
 .env.*
-!.env.example
+signing-keys/
 
-# Logs
-*.log
+# Replit internals (harmless if this repo never had them, safe to keep)
+.replit
+.upm/
+.cache/
+.config/
+replit.nix
+attached_assets/
 
-# OS
+# OS/editor noise
 .DS_Store
 Thumbs.db

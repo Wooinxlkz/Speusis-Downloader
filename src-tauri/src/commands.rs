@@ -860,6 +860,26 @@ pub async fn update_open_download(app: AppHandle, url: String) -> Result<(), Str
     app.shell().open(url, None).map_err(|e| e.to_string())
 }
 
+/// Opens the extension's store/listing page for a given browser. Used for
+/// Firefox and Arc, which the NSIS installer cannot auto-register (Firefox
+/// requires Mozilla's own signing; Arc has no confirmed registry hook) -
+/// this is the one-click fallback instead of silent install.
+///
+/// IMPORTANT: these are placeholder URLs. The Chrome Web Store URL only
+/// becomes real once the extension is actually submitted and approved
+/// there (same listing serves Chrome/Edge/Brave/Arc users); the AMO URL
+/// once approved on addons.mozilla.org. Replace both below with the real
+/// listing URLs after each store approves the submission.
+#[tauri::command]
+pub async fn extension_open_store(app: AppHandle, browser: String) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    let url = match browser.as_str() {
+        "firefox" => "https://addons.mozilla.org/firefox/addon/speusis-downloader/", // TODO: replace once AMO listing is live
+        _ => "https://chromewebstore.google.com/detail/speusis-downloader/PLACEHOLDER_ID", // TODO: replace once Chrome Web Store listing is live
+    };
+    app.shell().open(url, None).map_err(|e| e.to_string())
+}
+
 // ---------- Hot-patch system ----------
 //
 // In the Tauri context there is no "asar" (that's an Electron concept).

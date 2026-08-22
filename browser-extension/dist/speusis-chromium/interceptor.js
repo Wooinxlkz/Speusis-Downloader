@@ -85,12 +85,17 @@
       u.searchParams.delete("rbuf");
       var cleanUrl = u.toString();
 
+      /* googlevideo URLs carry the exact byte size in `clen` - grab it so
+         the dialog can show a real size instead of "Stream"/"—". */
+      var clen = Number(u.searchParams.get("clen"));
+      var fileSize = clen > 0 ? clen : null;
+
       if (YT_COMBINED[itag]) {
-        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "combined", ytQuality: YT_COMBINED[itag] });
+        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "combined", ytQuality: YT_COMBINED[itag], fileSize: fileSize });
       } else if (YT_ADAPTIVE_VIDEO[itag]) {
-        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "video", ytQuality: YT_ADAPTIVE_VIDEO[itag] });
+        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "video", ytQuality: YT_ADAPTIVE_VIDEO[itag], fileSize: fileSize });
       } else if (YT_ADAPTIVE_AUDIO[itag]) {
-        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "audio", ytQuality: YT_ADAPTIVE_AUDIO[itag] });
+        notify(cleanUrl, { isYouTube: true, ytItag: itag, ytKind: "audio", ytQuality: YT_ADAPTIVE_AUDIO[itag], fileSize: fileSize });
       }
       /* Unknown itag: silently ignored, same as before. */
     } catch (_) {}

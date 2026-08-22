@@ -2,6 +2,7 @@
 "use strict";
 
 const SPEUSIS_ENDPOINT = "http://127.0.0.1:9999/downloads";
+const SPEUSIS_STREAM_ENDPOINT = "http://127.0.0.1:9999/downloads/stream";
 
 /* ── DOM refs ──────────────────────────────────────────────────── */
 const urlField      = document.getElementById("urlField");
@@ -22,6 +23,27 @@ const videoSection  = document.getElementById("videoSection");
 const qualityList   = document.getElementById("qualityList");
 const modalOverlay  = document.getElementById("modalOverlay");
 const newCatInput   = document.getElementById("newCatInput");
+const qualityProfile = document.getElementById("qualityProfile");
+function sendRuntimeMessage(message) {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage(message, response => {
+      // Reading lastError prevents Chrome from reporting an unchecked
+      // "message port closed" error when the worker is restarting.
+      const error = chrome.runtime.lastError;
+      resolve(error ? null : response);
+    });
+  });
+}
+if (qualityProfile) {
+  chrome.storage.local.get("__speusis_quality_profile", r => {
+    if (r.__speusis_quality_profile) qualityProfile.value = r.__speusis_quality_profile;
+    applyQualityProfile();
+  });
+  qualityProfile.addEventListener("change", () => {
+    chrome.storage.local.set({__speusis_quality_profile:qualityProfile.value});
+    applyQualityProfile();
+  });
+}
 
 /* ── Quality labels ────────────────────────────────────────────── */
 const QUALITY_LABELS = ["1080p HD","720p HD","480p","360p","240p","144p"];
@@ -65,6 +87,19 @@ function isVideoOrStreamUrl(url, filename) {
   try { if (VIDEO_EXTS.test(new URL(url).pathname)) return true; } catch {}
   if (VIDEO_EXTS.test(filename||"")) return true;
   return isYouTubeUrl(url);
+}
+function sizeFromUrl(url) {
+  try {
+    const p = new URL(url).searchParams;
+    for (const key of ["clen", "contentLength", "content-length", "size"]) {
+      const value = Number(p.get(key));
+      if (value > 0) return value;
+    }
+  } catch {}
+  return null;
+}
+function isManifestUrl(url) {
+  return /\.(m3u8|mpd)(?:[?#]|$)/i.test(String(url || ""));
 }
 function isTorrentUrl(url) { return url.startsWith("magnet:")||/\.torrent(\?|#|$)/i.test(url); }
 function guessCategory(filename) {
@@ -116,6 +151,23 @@ function labelStream(s, i) {
   if (/240/.test(u)) return "240p"; if (/144/.test(u)) return "144p";
   return QUALITY_LABELS[i]||`Stream ${i+1}`;
 }
+function applyQualityProfile() {
+  const rows = [...qualityList.querySelectorAll(".vq-row")];
+  if (!rows.length) return;
+  rows.forEach(row => row.classList.remove("recommended"));
+  const profile = qualityProfile?.value || "best";
+  let target = rows[0];
+  if (profile === "small") target = rows[rows.length - 1];
+  if (profile === "audio") target = rows.find(r => /audio|mp3|aac|opus/i.test(r.dataset.type + " " + r.dataset.quality)) || rows[0];
+  if (profile === "1080" || profile === "720") {
+    const limit = Number(profile);
+    target = rows.find(r => {
+      const match = r.dataset.quality.match(/(\d{3,4})p/i);
+      return match && Number(match[1]) <= limit;
+    }) || rows[rows.length - 1];
+  }
+  target.classList.add("recommended");
+}
 function getSaveDirs() { try { return JSON.parse(localStorage.getItem("__speusis_saveDirs")||"{}"); } catch { return {}; } }
 function setSaveDirs(d) { try { localStorage.setItem("__speusis_saveDirs",JSON.stringify(d)); } catch {} }
 
@@ -156,6 +208,7 @@ function renderFileIcon(filename, isYT) {
 
 /* ── Quality rows ──────────────────────────────────────────────── */
 let _pendingYtQuality="";
+let _isStreamable=false; // set in init(): true for a direct, single-file video/stream URL that should be fetched by the browser and streamed to the app instead of handed over as a URL for the app to fetch itself
 let _pendingMux=null; // {videoUrl, audioUrl} when the chosen row needs backend muxing
 let _pendingPageUrl=null; // the tab this download was captured from - sent as Referer so hotlink-protected CDNs (most video/stream URLs) don't 403
 function chooseQuality(row, fallbackUrl, pageTitle) {
@@ -169,9 +222,16 @@ function chooseQuality(row, fallbackUrl, pageTitle) {
   urlField.value=dlUrl; filenameField.value=fname;
   categoryField.value="Video"; catLabel.textContent="Video";
   renderFileIcon(fname,false);
-  fileSize.textContent=row.dataset.type?"Stream":fileSize.textContent;
+  // Keep the detected byte size when the selected quality carries one.
+  // "Stream" is only a fallback for sources whose size is genuinely unknown.
+  if (row.dataset.fileSize && Number(row.dataset.fileSize) > 0) {
+    fileSize.textContent = formatBytes(Number(row.dataset.fileSize));
+  } else if (row.dataset.type) {
+    fileSize.textContent = isManifestUrl(dlUrl) ? "Stream" : "Size unavailable";
+  }
   videoSection.style.display="none";
   document.body.classList.remove("quality-mode");
+  _isStreamable=!_pendingMux&&!isManifestUrl(dlUrl);
   setStatus(`Selected ${quality||"video stream"}${_pendingMux?" — desktop app will mux video+audio":""}. Press Start Download or Download Later.`,"");
   filenameField.focus(); filenameField.select();
 }
@@ -188,14 +248,20 @@ function buildQualityRows(data) {
     qualityList.innerHTML=sorted.map((s,i)=>{
       const ql=labelStream(s,i),bt=s.type||"HLS",bc=BADGE_COLORS[bt]||"#1d4ed8";
       const fname=s.type==="Subtitle"?`${sanitize(pageTitle)}.${(s.quality||"en").slice(0,5).replace(/[^a-z0-9]/gi,"")}.vtt`:makeVideoFilename(pageTitle,ql);
-      const info=`${pageTitle.slice(0,44)} — ${bt} — ${ql}`;
-      return `<div class="vq-row" data-url="${escAttr(s.url)}" data-type="${escAttr(bt)}" data-quality="${escAttr(ql)}" data-filename="${escAttr(fname)}" data-idx="${i}" data-needs-mux="${s.needsMux?"1":"0"}" data-video-url="${escAttr(s.videoUrl||"")}" data-audio-url="${escAttr(s.audioUrl||"")}">
+      const sizeLabel=Number(s.fileSize)>0?formatBytes(Number(s.fileSize)):"Size unavailable";
+      const meta=s.metadata||{};
+      const dimensions=meta.width&&meta.height?` · ${meta.width}×${meta.height}`:"";
+      const duration=meta.duration>0?` · ${Math.floor(meta.duration/60)}:${String(Math.floor(meta.duration%60)).padStart(2,"0")}`:"";
+      const info=`${pageTitle.slice(0,44)} — ${bt} — ${ql}${dimensions}${duration}`;
+      return `<div class="vq-row" data-url="${escAttr(s.url)}" data-type="${escAttr(bt)}" data-quality="${escAttr(ql)}" data-filename="${escAttr(fname)}" data-file-size="${Number(s.fileSize) > 0 ? Number(s.fileSize) : ""}" data-idx="${i}" data-needs-mux="${s.needsMux?"1":"0"}" data-video-url="${escAttr(s.videoUrl||"")}" data-audio-url="${escAttr(s.audioUrl||"")}">
         <span class="vq-num">${i+1}.</span>
-        <span class="vq-info" title="${escAttr(info)}">${escHtml(info)}</span>
+        <span class="vq-info" title="${escAttr(info)}">${escHtml(info)} · <span class="vq-size">${escHtml(sizeLabel)}</span></span>
         <span class="vq-badge" style="background:${bc}">${bt}</span>
         <button class="vq-dl-btn" data-idx="${i}">↓</button></div>`;
     }).join("");
     wireQualityRows(url,pageTitle);
+    applyQualityProfile();
+    hydrateStreamSizes(sorted);
     document.getElementById("btnVideoDownload")?.addEventListener("click",()=>{
       const r=qualityList.querySelector(".vq-row"); if(r) chooseQuality(r,url,pageTitle);
     });
@@ -242,6 +308,18 @@ function buildQualityRows(data) {
   });
   document.getElementById("btnVideoClose")?.addEventListener("click",()=>window.close());
 }
+async function hydrateStreamSizes(streams) {
+  const rows=[...qualityList.querySelectorAll(".vq-row")];
+  await Promise.all(streams.slice(0,20).map(async (stream,index) => {
+    if (Number(stream.fileSize)>0 || !rows[index]) return;
+    const info=await requestFileInfo(stream.url);
+    if (!info?.size) return;
+    const size=info.size;
+    rows[index].dataset.fileSize=String(size);
+    const sizeEl=rows[index].querySelector(".vq-size");
+    if (sizeEl) sizeEl.textContent=formatBytes(size)+(info.estimated?" (est.)":"");
+  }));
+}
 function wireQualityRows(url, pageTitle) {
   qualityList.querySelectorAll(".vq-dl-btn").forEach(btn=>btn.addEventListener("click",e=>{
     e.stopPropagation(); chooseQuality(btn.closest(".vq-row"),url,pageTitle);
@@ -256,9 +334,7 @@ async function init() {
   const verEl = document.getElementById("titlebarVersion");
   if (verEl) verEl.textContent = "v" + chrome.runtime.getManifest().version;
 
-  const data=await new Promise(res=>
-    chrome.runtime.sendMessage({type:"speusis-get-dialog-data"},d=>res(d||null))
-  );
+  const data=await sendRuntimeMessage({type:"speusis-get-dialog-data"});
   if (!data) { setStatus("No download data received. Close this window.","error"); return; }
 
   _pendingPageUrl = data.pageUrl || null;
@@ -285,25 +361,51 @@ async function init() {
   saveDirField.value=dirs[cat]||"Downloads\\";
 
   renderFileIcon(filename,isYT);
-  if (data.fileSize) fileSize.textContent=formatBytes(data.fileSize);
-  else if (!isYT&&!isTor) fetchFileSize(url);
+  let sizeKnown=false;
+  const urlSize = sizeFromUrl(url);
+  if (Number(data.fileSize) > 0) {
+    fileSize.textContent=formatBytes(Number(data.fileSize));
+    sizeKnown=true;
+  } else if (urlSize) {
+    fileSize.textContent=formatBytes(urlSize);
+    sizeKnown=true;
+  } else if (!isYT&&!isTor) {
+    sizeKnown=await fetchFileSize(url);
+  }
 
   if (isYT||data.isStream||isVideo) {
-    fileSize.textContent=isYT?"Stream":(fileSize.textContent||"Stream");
+    if (!sizeKnown) fileSize.textContent=isManifestUrl(url) ? "Stream" : "Size unavailable";
     document.body.classList.add("quality-mode");
     videoSection.style.display="flex";
     buildQualityRows(data);
   }
   if (isYT) ytNotice.style.display="block";
   if (isTor){torNotice.style.display="block";fileSize.textContent="P2P";}
+
+  // A manifest (.m3u8/.mpd) is a playlist, not a fetchable file - can't be
+  // streamed as-is. A torrent goes through the torrent engine, not HTTP.
+  // Everything else that's a single detected video/stream byte-URL (this is
+  // exactly the case that was always getting 403'd when the app tried to
+  // re-fetch it itself - googlevideo.com and CDNs like it) gets fetched by
+  // the browser and streamed to the app instead.
+  _isStreamable=(isYT||data.isStream||isVideo)&&!isTor&&!isManifestUrl(url);
 }
 
 async function fetchFileSize(url) {
+  const info=await requestFileInfo(url);
+  if (info?.size) {
+    fileSize.textContent = formatBytes(info.size)+(info.estimated?" (est.)":"");
+    return true;
+  }
+  return false;
+}
+async function requestFileInfo(url) {
   try {
-    const r=await fetch(url,{method:"HEAD",mode:"cors"});
-    const l=r.headers.get("content-length");
-    if (l&&Number(l)>0) fileSize.textContent=formatBytes(Number(l));
+    const result = await sendRuntimeMessage({type:"speusis-get-file-size",url});
+    const size = Number(result?.size);
+    if (size > 0) return {size, estimated:!!result.estimated};
   } catch {}
+  return null;
 }
 
 /* ── Category / path sync ──────────────────────────────────────── */
@@ -383,6 +485,16 @@ async function startDownload(later) {
 }
 
 async function doDownload(url, filename, later, ytQuality) {
+  const saveDir=saveDirField.value.trim();
+
+  if (_isStreamable && !later) {
+    // Download Later has no meaning for a stream we fetch ourselves right
+    // now - fall through to the normal JSON flow so it's just queued as a
+    // URL for the app to pick up whenever it starts (matches existing
+    // "Download Later" behavior for everything else).
+    return streamDownload(url, filename||guessFilename(url), saveDir);
+  }
+
   setSpinner(true);
   setStatus(later?"Adding to queue…":"Connecting to Speusis…","");
   try {
@@ -396,7 +508,6 @@ async function doDownload(url, filename, later, ytQuality) {
       // can only detect and hand off the pair, not merge them itself.
       body.needsMux=true; body.videoUrl=_pendingMux.videoUrl; body.audioUrl=_pendingMux.audioUrl;
     }
-    const saveDir=saveDirField.value.trim();
     if(saveDir) body.saveDir=saveDir;
 
     const res=await fetch(SPEUSIS_ENDPOINT,{
@@ -412,6 +523,71 @@ async function doDownload(url, filename, later, ytQuality) {
     if(msg.toLowerCase().includes("fetch")||msg.toLowerCase().includes("networkerror")||msg.toLowerCase().includes("failed to fetch"))
       setStatus("Speusis is not running. Please open the Speusis Downloader desktop app first.","error");
     else setStatus(msg,"error");
+  }
+}
+
+// Fetches the video with the browser's own network stack (this is the
+// whole point - a real browser fetch succeeds against CDNs like
+// googlevideo.com that reject the app's own requests outright, almost
+// certainly due to TLS/HTTP fingerprinting, not anything fixable by
+// tweaking request headers on the app side) and streams the response body
+// straight through to the app's /downloads/stream endpoint as it arrives,
+// instead of handing the app a URL to fetch on its own.
+async function streamDownload(url, filename, saveDir) {
+  setSpinner(true);
+  setStatus("Fetching from source…","");
+
+  let resp;
+  try {
+    resp = await fetch(url, { credentials:"omit", referrerPolicy:"no-referrer" });
+  } catch (e) {
+    setSpinner(false);
+    setStatus("Could not fetch the video: "+(e.message||e),"error");
+    return;
+  }
+  if (!resp.ok || !resp.body) {
+    setSpinner(false);
+    setStatus(`Fetch failed: HTTP ${resp.status||"?"}`,"error");
+    return;
+  }
+
+  const total = Number(resp.headers.get("content-length")||0);
+  let received = 0;
+  const progressStream = new TransformStream({
+    transform(chunk, controller) {
+      received += chunk.byteLength;
+      fileSize.textContent = total ? `${formatBytes(received)} / ${formatBytes(total)}` : formatBytes(received);
+      setStatus(total
+        ? `Downloading… ${Math.round(received/total*100)}%`
+        : `Downloading… ${formatBytes(received)}`, "");
+      controller.enqueue(chunk);
+    }
+  });
+
+  const headers = { "X-Speusis-Filename": encodeURIComponent(filename) };
+  if (total > 0) headers["X-Speusis-Total-Size"] = String(total);
+  if (saveDir) headers["X-Speusis-SaveDir"] = encodeURIComponent(saveDir);
+
+  try {
+    const uploadResp = await fetch(SPEUSIS_STREAM_ENDPOINT, {
+      method: "POST",
+      headers,
+      body: resp.body.pipeThrough(progressStream),
+      duplex: "half",
+    });
+    if (!uploadResp.ok) {
+      const errBody = await uploadResp.json().catch(()=>({}));
+      throw new Error(errBody.error || `Speusis returned HTTP ${uploadResp.status}`);
+    }
+    setSpinner(false);
+    setStatus("✔ Download complete!","success");
+    setTimeout(()=>window.close(),1200);
+  } catch (err) {
+    setSpinner(false);
+    const msg = String(err.message||err);
+    if (msg.toLowerCase().includes("fetch")||msg.toLowerCase().includes("networkerror")||msg.toLowerCase().includes("failed to fetch"))
+      setStatus("Speusis is not running. Please open the Speusis Downloader desktop app first.","error");
+    else setStatus("Stream to app failed: "+msg,"error");
   }
 }
 

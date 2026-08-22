@@ -6,6 +6,17 @@ const DOWNLOADABLE = /\.(7z|apk|avi|bin|bz2|csv|deb|dmg|doc|docx|exe|flac|flv|gz
 const STREAM_EXTS  = /\.(m3u8|mpd|m4s)(\?|#|$)/i;
 const YOUTUBE_VIDEO_PATH = /^(\/watch|\/shorts\/|\/live\/)/;
 
+/* Chrome may restart the MV3 service worker between detection and click.
+ * Always consume the callback error so the content script does not surface
+ * "message port closed" as an uncaught extension error. */
+function sendRuntimeMessage(message) {
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch {}
+}
+
 function isYouTubeVideoPage() {
   return location.hostname.includes("youtube.com") &&
     YOUTUBE_VIDEO_PATH.test(location.pathname);
@@ -71,6 +82,10 @@ function rebuildYouTubeMuxPairs() {
         needsMux: true,
         type: "MP4",
         quality: `${v.quality} (muxed)`,
+        // Approximate: video-only stream size dominates the final muxed
+        // file, so this is close enough for display purposes even though
+        // the audio track adds a bit more.
+        fileSize: (v.fileSize && audio.fileSize) ? v.fileSize + audio.fileSize : (v.fileSize || null),
         timestamp: Date.now(),
       });
       ytPendingFormats.delete(String(v.itag));
@@ -530,21 +545,23 @@ function updateStreamBadge() {
   const sendDl = (info) => {
     if (info.pending) return;
     if (info.needsMux) {
-      chrome.runtime.sendMessage({
+      sendRuntimeMessage({
         type: "speusis-download", needsMux: true,
         videoUrl: info.videoUrl, audioUrl: info.audioUrl,
         filename: sanitize(title) + ".mp4", isStream: true,
         pageTitle: title,
+        fileSize: info.fileSize || null,
         streams: [{ ...info, url: info.videoUrl }],
       });
       return;
     }
     const ext = info.type === "Subtitle" ? ".vtt"
               : info.type === "HLS" ? ".m3u8" : info.type === "DASH" ? ".mpd" : ".ts";
-    chrome.runtime.sendMessage({
+    sendRuntimeMessage({
       type: "speusis-download", url: info.url,
       filename: sanitize(title) + ext, isStream: true,
       pageTitle: title,
+      fileSize: info.fileSize || null,
       // Attach the actual detected stream (quality/type/url) instead of
       // leaving `streams` empty - an empty streams array made the dialog
       // fall back to its hardcoded "Best Quality / Medium Quality" HD/SD
@@ -990,7 +1007,7 @@ document.addEventListener("click", (event) => {
   event.stopPropagation();
 
   const filename = decodeURIComponent(href.split("/").filter(Boolean).pop()?.split("?")[0] || "");
-  chrome.runtime.sendMessage({ type: "speusis-download", url: href, filename: filename || undefined });
+  sendRuntimeMessage({ type: "speusis-download", url: href, filename: filename || undefined });
 }, true);
 
 /* ── Listen for MAIN-world network intercept messages ───────────── */
@@ -1057,7 +1074,7 @@ window.addEventListener("message", (e) => {
     // (see interceptor.js's v0.27 comment for why it's not called from
     // here directly). Best-effort - if this fails or the service worker
     // doesn't respond, formats simply stay locked, same as before.
-    chrome.runtime.sendMessage({
+    sendRuntimeMessage({
       type: "speusis-resolve-yt-cipher",
       playerUrl: e.data.playerUrl,
       formats: e.data.formats,
@@ -1070,7 +1087,7 @@ window.addEventListener("message", (e) => {
       return;
     }
     if (e.data.isYouTube && e.data.ytItag) {
-      recordYouTubeStream(e.data.url, e.data.ytItag, e.data.ytQuality || e.data.ytItag, e.data.ytKind);
+      recordYouTubeStream(e.data.url, e.data.ytItag, e.data.ytQuality || e.data.ytItag, e.data.ytKind, e.data.fileSize);
     } else {
       checkStreamUrl(e.data.url);
     }
@@ -1121,13 +1138,13 @@ async function checkHlsEncryption(url) {
   }
 }
 
-function checkStreamUrl(url) {
+function checkStreamUrl(url, metadata) {
   if (!url || !url.startsWith("http")) return;
   try {
     const parsed = new URL(url);
     if (!STREAM_EXTS.test(parsed.pathname)) return;
     const type = detectStreamType(url);
-    recordStream(url, type);
+    recordStream(url, type, undefined, metadata);
     if (type === "HLS") {
       checkHlsEncryption(url).then((encrypted) => {
         if (encrypted === null) return;
@@ -1144,19 +1161,19 @@ function detectStreamType(url) {
   return "Stream";
 }
 
-function recordStream(url, type, encrypted) {
+function recordStream(url, type, encrypted, metadata) {
   if (detectedStreams.has(url)) return;
   if (!isTopFrame) {
     // Report up instead of rendering a badge inside a (likely tiny,
     // clipped) cross-origin iframe. The top frame's listener above
     // relays this into its own detectedStreams / badge.
     detectedStreams.set(url, true); // dedupe guard for this frame only
-    chrome.runtime.sendMessage({
+    sendRuntimeMessage({
       type: "speusis-subframe-stream", url, streamType: type, encrypted,
     }).catch(() => {});
     return;
   }
-  detectedStreams.set(url, { url, type, encrypted: encrypted ?? null, timestamp: Date.now() });
+  detectedStreams.set(url, { url, type, encrypted: encrypted ?? null, metadata: metadata || null, timestamp: Date.now() });
   updateStreamBadge();
 }
 
@@ -1167,25 +1184,25 @@ function markStreamEncrypted(url, encrypted) {
   if (isTopFrame) updateStreamBadge();
 }
 
-function recordYouTubeStream(url, itag, quality, kind) {
+function recordYouTubeStream(url, itag, quality, kind, fileSize) {
   if (!isYouTubeVideoPage()) return;
   ytPendingFormats.delete(String(itag));
   if (kind === "video") {
     if (ytAdaptiveVideo.has(itag)) return;
-    ytAdaptiveVideo.set(itag, { itag, quality, url });
+    ytAdaptiveVideo.set(itag, { itag, quality, url, fileSize: fileSize || null });
     rebuildYouTubeMuxPairs();
     return;
   }
   if (kind === "audio") {
     if (ytAdaptiveAudio.has(itag)) return;
-    ytAdaptiveAudio.set(itag, { itag, quality, url });
+    ytAdaptiveAudio.set(itag, { itag, quality, url, fileSize: fileSize || null });
     rebuildYouTubeMuxPairs(); // an audio track just resolved — re-pair every known video itag
     return;
   }
   // "combined" (legacy progressive) or unspecified — original behavior.
   const key = `yt-itag-${itag}`;
   if (detectedStreams.has(key)) return;
-  detectedStreams.set(key, { url, type: "MP4", quality, ytItag: itag, timestamp: Date.now() });
+  detectedStreams.set(key, { url, type: "MP4", quality, ytItag: itag, fileSize: fileSize || null, timestamp: Date.now() });
   updateStreamBadge();
 }
 
@@ -1230,7 +1247,7 @@ function initYouTubeGrabber() {
       const title = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, h1.title")?.textContent?.trim()
         || document.title.replace(" - YouTube", "").trim();
       const capturedStreams = [...detectedStreams.values()];
-      chrome.runtime.sendMessage({
+      sendRuntimeMessage({
         type: "speusis-download", url, filename: sanitize(title) + ".mp4",
         isYouTube: true, streams: capturedStreams, pageTitle: title,
       });
@@ -1246,6 +1263,16 @@ function initYouTubeGrabber() {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "speusis-scan-links") {
     const links = [];
+    const seen = new Set();
+    const add = (url, name, kind = "link") => {
+      if (!/^https?:\/\//i.test(url) || seen.has(url)) return;
+      try {
+        const pathname = new URL(url).pathname;
+        if (!DOWNLOADABLE.test(pathname) && !STREAM_EXTS.test(pathname) && kind !== "media") return;
+      } catch { return; }
+      seen.add(url);
+      links.push({ url, name: (name || url.split("/").pop()?.split("?")[0] || url).slice(0, 120), kind });
+    };
     document.querySelectorAll("a[href]").forEach((a) => {
       const href = a.href;
       if (!/^https?:\/\//i.test(href)) return;
@@ -1254,10 +1281,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (!DOWNLOADABLE.test(pathname) && !STREAM_EXTS.test(pathname)) return;
       } catch { return; }
       const name = a.textContent?.trim() || href.split("/").pop()?.split("?")[0] || href;
-      links.push({ url: href, name: name.slice(0, 120) });
+      add(href, name, "link");
+    });
+    document.querySelectorAll("video, audio, source, track, img").forEach((el) => {
+      const src = el.currentSrc || el.src || el.href;
+      if (!src || src.startsWith("blob:") || src.startsWith("data:")) return;
+      const label = el.getAttribute("label") || el.getAttribute("title") ||
+        document.title || src.split("/").pop()?.split("?")[0];
+      add(src, label, el.tagName.toLowerCase() === "track" ? "subtitle" : "media");
     });
     for (const [, info] of detectedStreams) {
-      links.push({ url: info.url, name: `[${info.type}] ${(info.url.split("/").pop() || info.url).slice(0, 90)}` });
+      if (info?.url) add(info.url, `[${info.type}] ${(info.url.split("/").pop() || info.url).slice(0, 90)}`, "stream");
     }
     sendResponse({ links });
     return true;
@@ -1285,7 +1319,13 @@ function initMediaSrcWatcher() {
     media.addEventListener("loadedmetadata", () => {
       if (location.hostname.includes("youtube.com")) handleYouTubeActiveVideo(media);
       const s = media.currentSrc;
-      if (s && !s.startsWith("blob:") && !s.startsWith("data:")) checkStreamUrl(s);
+      if (s && !s.startsWith("blob:") && !s.startsWith("data:")) {
+        checkStreamUrl(s, {
+          duration: Number.isFinite(media.duration) ? media.duration : null,
+          width: media.videoWidth || null,
+          height: media.videoHeight || null,
+        });
+      }
     });
   };
   document.querySelectorAll("video, audio").forEach(watch);

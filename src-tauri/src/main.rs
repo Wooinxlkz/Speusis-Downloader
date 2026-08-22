@@ -716,6 +716,7 @@ fn main() {
             commands::update_check,
             commands::update_get_pending,
             commands::update_open_download,
+            commands::extension_open_store,
             commands::update_download_patch,
             commands::update_apply_patch,
             commands::update_relaunch,

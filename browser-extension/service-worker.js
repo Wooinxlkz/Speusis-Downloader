@@ -6,7 +6,9 @@ const SPEUSIS_ENDPOINT = "http://127.0.0.1:9999/downloads";
 // comment for the full explanation of what this does and doesn't do.
 const YT_CIPHER_ENDPOINT = "https://cipher.kikkia.dev/resolve_url";
 const DIALOG_WIDTH   = 640;
-const DIALOG_HEIGHT  = 600;
+// The form only needs a compact viewport; its content area still scrolls
+// when an informational notice is shown.
+const DIALOG_HEIGHT  = 390;
 const PENDING_KEY    = "__speusis_pending_download";
 const DIALOG_ID_KEY  = "__speusis_dialog_id";
 
@@ -27,10 +29,28 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id:"speusis-download-link",  title:"Download with Speusis",              contexts:["link"] });
   chrome.contextMenus.create({ id:"speusis-download-video", title:"Download Video with Speusis",         contexts:["video","audio"] });
   chrome.contextMenus.create({ id:"speusis-download-page",  title:"Download Page Target with Speusis",   contexts:["page"] });
+  chrome.contextMenus.create({ id:"speusis-collect-page-links", title:"Collect downloadable links", contexts:["page"] });
+  chrome.contextMenus.create({ id:"speusis-download-page-media", title:"Download all media on page", contexts:["page"] });
 });
 
 /* ── Context Menu Clicks ─────────────────────────────────────────── */
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if ((info.menuItemId === "speusis-collect-page-links" || info.menuItemId === "speusis-download-page-media") && tab?.id != null) {
+    try {
+      const result = await chrome.tabs.sendMessage(tab.id, { type:"speusis-scan-links" });
+      const links = await filterBlockedLinks(result?.links || []);
+      if (info.menuItemId === "speusis-download-page-media") {
+        await queueBatch(links, tab.url, true);
+        notify("Speusis", `${links.length} downloadable link(s) added to the queue.`);
+      } else {
+        await chrome.storage.local.set({ __speusis_last_collected_links: links, __speusis_last_collected_at: Date.now() });
+        notify("Speusis", `${links.length} downloadable link(s) collected.`);
+      }
+    } catch {
+      notify("Speusis", "This page does not allow link collection.");
+    }
+    return;
+  }
   let url = null;
   if (info.menuItemId === "speusis-download-link"  && info.linkUrl) url = info.linkUrl;
   if (info.menuItemId === "speusis-download-video" && info.srcUrl)  url = info.srcUrl;
@@ -38,6 +58,43 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (url && !isUnsupportedScheme(url))
     await openDownloadDialog({ url, pageUrl: tab?.url, pageTitle: tab?.title });
 });
+
+async function queueBatch(items, pageUrl, start) {
+  const settings = await chrome.storage.local.get(["__speusis_quality_profile", "__speusis_rules"]);
+  for (const item of items.slice(0, 500)) {
+    const rule = findRule(item.url, settings.__speusis_rules || []);
+    const body = {
+      url: item.url, filename: item.name || guessFilename(item.url),
+      start: !!start, pageUrl,
+      qualityProfile: settings.__speusis_quality_profile || "best",
+    };
+    if (rule?.category) body.category = rule.category;
+    try {
+      const response = await fetch(SPEUSIS_ENDPOINT, {
+        method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error("Speusis rejected the item");
+    } catch {}
+  }
+}
+function notify(title, message) {
+  chrome.notifications.create({ type:"basic", iconUrl:"icon128.png", title, message });
+}
+function domainOf(url) {
+  try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
+}
+async function filterBlockedLinks(links) {
+  const { __speusis_blocked_domains: blocked = [] } =
+    await chrome.storage.local.get("__speusis_blocked_domains");
+  return links.filter(item => {
+    const host = domainOf(item.url);
+    return !blocked.some(d => host === d || host.endsWith("." + d));
+  });
+}
+function findRule(url, rules) {
+  const host = domainOf(url);
+  return rules.find(r => r?.domain && (host === r.domain || host.endsWith("." + r.domain)));
+}
 
 /* ── Intercept Browser Downloads ─────────────────────────────────── */
 chrome.downloads.onCreated.addListener(async (item) => {
@@ -102,10 +159,84 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  if (message?.type === "speusis-get-file-size" && message.url) {
+    inspectRemoteMedia(message.url)
+      .then(info => sendResponse(info))
+      .catch(() => sendResponse({ size: null, estimated: false }));
+    return true;
+  }
 });
+
+async function inspectRemoteMedia(url) {
+  // Extension host permissions allow this worker to inspect media hosts even
+  // when the dialog page itself is blocked by the site's CORS policy.
+  try {
+    const head = await fetch(url, { method: "HEAD", redirect: "follow" });
+    const length = Number(head.headers.get("content-length"));
+    if (length > 0) return { size:length, estimated:false };
+  } catch {}
+
+  // Some CDNs omit Content-Length on HEAD but expose the total in
+  // Content-Range for a one-byte request.
+  try {
+    const range = await fetch(url, {
+      method: "GET",
+      headers: { Range: "bytes=0-0" },
+      redirect: "follow",
+    });
+    const contentRange = range.headers.get("content-range") || "";
+    const match = contentRange.match(/\/(\d+)$/);
+    const total = match ? Number(match[1]) : 0;
+    if (total > 0) return { size:total, estimated:false };
+  } catch {}
+
+  // For a playlist, sum the sizes of its segments when the CDN exposes them.
+  // If only some segments report a length, mark the result as estimated.
+  if (/\.(m3u8|mpd)(?:[?#]|$)/i.test(url)) {
+    try {
+      const playlist = await fetch(url, { redirect:"follow" });
+      const text = await playlist.text();
+      const base = playlist.url || url;
+      const segmentUrls = [];
+      if (/\.m3u8/i.test(url)) {
+        if (!/#EXTINF:/i.test(text)) return { size:null, estimated:false };
+        for (const line of text.split(/\r?\n/)) {
+          const value = line.trim();
+          if (!value || value.startsWith("#") || !/^https?:/i.test(new URL(value, base).href)) continue;
+          segmentUrls.push(new URL(value, base).href);
+        }
+      } else {
+        for (const match of text.matchAll(/<BaseURL[^>]*>([^<]+)<\/BaseURL>/gi)) {
+          segmentUrls.push(new URL(match[1].trim(), base).href);
+        }
+      }
+      const unique = [...new Set(segmentUrls)].slice(0, 80);
+      const lengths = await Promise.all(unique.map(async segment => {
+        try {
+          const r = await fetch(segment, { method:"HEAD", redirect:"follow" });
+          const n = Number(r.headers.get("content-length"));
+          return n > 0 ? n : 0;
+        } catch { return 0; }
+      }));
+      const known = lengths.filter(Boolean);
+      if (known.length) {
+        const average = known.reduce((a,b)=>a+b,0) / known.length;
+        const total = known.length === lengths.length
+          ? known.reduce((a,b)=>a+b,0)
+          : Math.round(average * lengths.length);
+        return { size:total, estimated:known.length !== lengths.length };
+      }
+    } catch {}
+  }
+  return { size:null, estimated:false };
+}
 
 /* ── Open Dialog Window ──────────────────────────────────────────── */
 async function openDownloadDialog(data) {
+  if (data?.url && (await filterBlockedLinks([{url:data.url}])).length === 0) {
+    notify("Speusis", "This domain is blocked in Privacy & Safety.");
+    return;
+  }
   /*
    * 1. Check storage for a dialog window ID that survived a SW restart.
    *    Chrome MV3 kills the SW after ~30 s idle; on next wake _opening resets
