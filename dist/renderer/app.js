@@ -453,20 +453,21 @@ function actionMenuMarkup(status, kind, taskName) {
 }
 
 function buildActionButtons(status, taskName, kind) {
+  const tt = s => (window.tt ? window.tt(s) : s);
   const b = [];
   const isMedia = VIDEO_EXT.test(taskName || "") || AUDIO_EXT.test(taskName || "");
   if (status === "running") {
-    b.push(`<button class="row-btn rb-pause" data-action="pause" title="Pause">${BTN_SVG.pause}</button>`);
-    b.push(`<button class="row-btn rb-stop"  data-action="stop"  title="Stop">${BTN_SVG.stop}</button>`);
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    b.push(`<button class="row-btn rb-pause" data-action="pause" title="${tt("Pause")}">${BTN_SVG.pause}</button>`);
+    b.push(`<button class="row-btn rb-stop"  data-action="stop"  title="${tt("Stop")}">${BTN_SVG.stop}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   } else if (status === "paused") {
-    b.push(`<button class="row-btn rb-play" data-action="resume" title="Resume">${BTN_SVG.play}</button>`);
-    b.push(`<button class="row-btn rb-stop" data-action="stop"   title="Stop">${BTN_SVG.stop}</button>`);
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    b.push(`<button class="row-btn rb-play" data-action="resume" title="${tt("Resume")}">${BTN_SVG.play}</button>`);
+    b.push(`<button class="row-btn rb-stop" data-action="stop"   title="${tt("Stop")}">${BTN_SVG.stop}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   } else if (status === "queued") {
-    b.push(`<button class="row-btn rb-stop" data-action="stop" title="Cancel">${BTN_SVG.stop}</button>`);
+    b.push(`<button class="row-btn rb-stop" data-action="stop" title="${tt("Cancel")}">${BTN_SVG.stop}</button>`);
   } else if (status === "completed") {
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   }
   // Delete and Re-download used to be their own standalone icons alongside
   // the 3-dot menu (3 icons total for a completed row). Folded into the
@@ -476,7 +477,7 @@ function buildActionButtons(status, taskName, kind) {
 
   return `${b.join("")}
     <span class="row-action-menu">
-      <button class="row-more" type="button" title="More actions" aria-label="More actions" aria-expanded="false">
+      <button class="row-more" type="button" title="${tt("More actions")}" aria-label="${tt("More actions")}" aria-expanded="false">
         <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
           <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
           <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
@@ -1767,6 +1768,21 @@ if (languageSelect && window.i18n) {
     if (savedLang !== window.i18n.DEFAULT_LANG) window.i18n.setLanguage(savedLang);
   });
 }
+
+/* ── Re-render dynamic UI on language change ────────────────────────
+ * i18n.js dispatches "i18n:changed" after setLanguage() has already run
+ * applyTranslations() over every static [data-i18n] element. The
+ * dynamic, JS-built surfaces (download rows, header stats, category
+ * tree, registration badge) were rendered once at load and carry no
+ * data-i18n, so their window.tt()-wrapped strings stay in the old
+ * language until they're rebuilt — which is exactly why the switcher
+ * "did nothing" for the list. Rebuild them here. renderAll() also
+ * refreshes stats + the category tree. Segment-map and tracer panels
+ * self-heal on their own 1.5s poll, so they aren't touched here. */
+document.addEventListener("i18n:changed", () => {
+  try { renderAll(); } catch (e) { console.warn("[i18n] renderAll after language change failed:", e); }
+  try { updateRegBadge(); } catch (e) {}
+});
 scanCompletedFiles?.addEventListener("change", () => api.updateSettings({ scanCompletedFiles: scanCompletedFiles.checked }).then(refreshSettings));
 
 document.getElementById("autoStartWithSystem")?.addEventListener("change", async e => {

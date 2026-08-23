@@ -40,7 +40,7 @@ export function initMediaPlayer({ api, openPanel, closePanel, setStatus, taskSto
   if (!panel || !video || !audio) {
     // Markup missing (shouldn't happen outside of a broken build) —
     // fail soft instead of throwing on every call.
-    return { openMediaPlayerPanel: async () => setStatus?.("Media Player isn't available.") };
+    return { openMediaPlayerPanel: async () => setStatus?.(tt("Media Player isn't available.")) };
   }
 
   let playlist = [];
@@ -55,7 +55,7 @@ export function initMediaPlayer({ api, openPanel, closePanel, setStatus, taskSto
 
   function renderPlaylist() {
     if (!playlist.length) {
-      listEl.innerHTML = `<div class="media-player-empty-list">No other playable downloads yet.</div>`;
+      listEl.innerHTML = `<div class="media-player-empty-list">${tt("No other playable downloads yet.")}</div>`;
       return;
     }
     listEl.innerHTML = playlist.map(item => `
@@ -85,7 +85,7 @@ export function initMediaPlayer({ api, openPanel, closePanel, setStatus, taskSto
     try {
       url = await api.getStreamingUrl(id);
     } catch {
-      setStatus?.("Couldn't start playback for " + item.name);
+      setStatus?.(tt("Couldn't start playback for") + " " + item.name);
       return;
     }
 

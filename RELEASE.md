@@ -5,6 +5,53 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.59 — Language switcher applies live + browser badge 403 fallback
+
+Two fixes in one release: the Settings → Language selector now actually re-renders the
+running UI, and downloads started from the browser badge no longer dead-end on a 403.
+
+### The language selector now re-renders the running UI
+
+v0.5.58 shipped the translation engine and 19 language files, but switching language
+appeared to "do nothing." The engine *was* loading the right dictionary and translating
+every static element — but the parts of the interface JavaScript builds at runtime (the
+download rows and their action-button tooltips, the header stats, the category tree, the
+tracer panel) were rendered once at startup and nothing rebuilt them on a language change,
+so they kept their original English text.
+
+- The app now listens for the engine's `i18n:changed` event and **rebuilds the dynamic UI
+  in place** when you switch language — no restart, no reload. Static chrome, download
+  rows, status/security-scan badges, header stats, the category tree, and the tracer panel
+  all update on the spot; Arabic still flips the whole window to right-to-left.
+- Wrapped the remaining runtime-built strings that already have translations — the row
+  action-button tooltips (Pause / Stop / Resume / Cancel / More actions) and the tracer
+  labels (ETA / saved to / source). Any string without a translation still falls back to
+  the exact English, so nothing blanks out.
+- **Known gap (stated honestly):** the right-click context menu is still English. Its
+  labels ("Resume Download", "Pause Download", "Segment Map", "Move/Rename", …) were never
+  part of the v0.5.58 translation set and aren't in the shared 487-key table, so localizing
+  it means authoring new keys across all 19 files — a separate task, not a regression.
+
+### Browser badge downloads fall back to the app on a 403 (extension v0.40.0)
+
+A download started from the floating page badge could fail with `Fetch failed: HTTP 403`
+while the *same URL* pasted into "Add URL" worked. The badge fetches the file itself from
+the extension's `chrome-extension://` dialog page (needed for TLS-fingerprinted CDNs like
+googlevideo), but that page can't send a page-origin `Referer` or the site's cookies, so
+hotlink/Referer-protected CDNs reject it. "Add URL" works because the desktop app fetches
+with a proper `Referer` built from the originating page URL.
+
+- The badge now **falls back to the app's own fetch** (the working "Add URL" path, with
+  `pageUrl` → `Referer`) whenever its direct browser fetch fails or returns a non-OK
+  status. The googlevideo browser-fetch path is unchanged and still tried first, so nothing
+  that worked before regresses — this only rescues the cases that were failing.
+- Extension bumped to **v0.40.0** (all six browser builds rebuilt).
+
+> **Version note (same caveat as v0.5.58):** this build updates the shipped renderer and
+> browser extension only. The compiled desktop binary's displayed version changes only on a
+> full Rust rebuild, which isn't part of this packaging step; `package.json` and
+> `Cargo.toml` are bumped to 0.5.59 as the source of record.
+
 ## v0.5.58 — Localization (English + 18 languages)
 
 **The whole UI can now be translated, and the Settings → Language selector finally does

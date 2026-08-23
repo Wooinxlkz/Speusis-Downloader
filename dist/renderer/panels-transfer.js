@@ -18,13 +18,13 @@ export function initTransferPanels({ api, openPanel, closePanel, setStatus, load
 
   async function openBatchPanel() {
     batchLinks = [];
-    document.getElementById("batchLinkList").innerHTML = `<div class="batch-empty">Click "Scan Active Tab" to detect downloadable links on the current browser page.</div>`;
+    document.getElementById("batchLinkList").innerHTML = `<div class="batch-empty">${tt('Click "Scan Active Tab" to detect downloadable links on the current browser page.')}</div>`;
     openPanel(batchPanel);
   }
 
   document.getElementById("btnCloseBatch").addEventListener("click", () => closePanel(batchPanel));
   document.getElementById("btnScanLinks").addEventListener("click", async () => {
-    setStatus("Scanning page for links…");
+    setStatus(tt("Scanning page for links…"));
     try {
       // Send message to browser extension via the listener port
       const resp = await fetch("http://127.0.0.1:9999/health");
@@ -32,21 +32,21 @@ export function initTransferPanels({ api, openPanel, closePanel, setStatus, load
       // The extension scanner is triggered from the browser side.
       // Here we show instructions and handle manual URL input as fallback.
       renderBatchPlaceholder();
-      setStatus("Extension will push links — or paste URLs below");
+      setStatus(tt("Extension will push links — or paste URLs below"));
     } catch {
       renderBatchPlaceholder();
-      setStatus("Enter URLs manually in the list");
+      setStatus(tt("Enter URLs manually in the list"));
     }
   });
 
   function renderBatchPlaceholder() {
     const list = document.getElementById("batchLinkList");
     list.innerHTML = `<div class="batch-empty">
-      <div style="margin-bottom:8px;">Paste one URL per line below, or use the browser extension's "Scan Links" button.</div>
+      <div style="margin-bottom:8px;">${tt('Paste one URL per line below, or use the browser extension\'s "Scan Links" button.')}</div>
       <textarea id="batchManualUrls" style="width:100%;height:100px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:8px;font:inherit;font-size:11px;resize:vertical;" placeholder="https://example.com/file1.zip
 https://example.com/file2.mp4
 ..."></textarea>
-      <button id="btnParseBatchUrls" class="btn-start" style="margin-top:8px;">Load URLs</button>
+      <button id="btnParseBatchUrls" class="btn-start" style="margin-top:8px;">${tt("Load URLs")}</button>
     </div>`;
     document.getElementById("btnParseBatchUrls")?.addEventListener("click", () => {
       const raw = document.getElementById("batchManualUrls")?.value || "";
@@ -61,7 +61,7 @@ https://example.com/file2.mp4
     const filtered = filterVal ? links.filter(l => l.name.toLowerCase().includes(filterVal) || l.url.toLowerCase().includes(filterVal)) : links;
     const list = document.getElementById("batchLinkList");
     if (filtered.length === 0) {
-      list.innerHTML = `<div class="batch-empty">No matching links found.</div>`;
+      list.innerHTML = `<div class="batch-empty">${tt("No matching links found.")}</div>`;
       return;
     }
     list.innerHTML = filtered.map((l, i) => {
@@ -85,7 +85,7 @@ https://example.com/file2.mp4
 
   document.getElementById("btnDownloadSelected").addEventListener("click", async () => {
     const checked = [...document.querySelectorAll(".batch-cb:checked")];
-    if (checked.length === 0) { setStatus("No links selected"); return; }
+    if (checked.length === 0) { setStatus(tt("No links selected")); return; }
     const urls = checked.map(cb => ({ url: cb.dataset.url, filename: cb.dataset.name }));
     closePanel(batchPanel);
     const results = await api.batchAddDownloads(urls);
@@ -93,7 +93,7 @@ https://example.com/file2.mp4
     for (const r of (results || [])) {
       if (r.ok) { added++; }
     }
-    setStatus(`Batch: ${added} of ${urls.length} downloads added`);
+    setStatus(`${tt("Batch:")} ${added} ${tt("of")} ${urls.length} ${tt("downloads added")}`);
     await loadDownloads();
   });
 
@@ -107,7 +107,7 @@ https://example.com/file2.mp4
   function openGrabberPanel() {
     grabberLinks = [];
     const list = document.getElementById("grabberLinkList");
-    if (list) list.innerHTML = `<div class="batch-empty">Enter a URL above and click "Scan Page" to find downloadable links.</div>`;
+    if (list) list.innerHTML = `<div class="batch-empty">${tt('Enter a URL above and click "Scan Page" to find downloadable links.')}</div>`;
     const status = document.getElementById("grabberStatus");
     if (status) status.textContent = "";
     openPanel(grabberPanel);
@@ -118,23 +118,23 @@ https://example.com/file2.mp4
 
   document.getElementById("btnGrabberScan")?.addEventListener("click", async () => {
     const url = document.getElementById("grabberUrl")?.value?.trim();
-    if (!url) { setStatus("Enter a URL to scan"); return; }
+    if (!url) { setStatus(tt("Enter a URL to scan")); return; }
     const statusEl = document.getElementById("grabberStatus");
-    if (statusEl) statusEl.textContent = "Scanning…";
-    setStatus("Web Grabber: scanning page…");
+    if (statusEl) statusEl.textContent = tt("Scanning…");
+    setStatus(tt("Web Grabber: scanning page…"));
     try {
       const result = await api.grabberScan?.(url);
       if (!result || !result.ok) {
-        if (statusEl) statusEl.textContent = result?.error || (window.tt ? window.tt("Scan failed") : "Scan failed");
+        if (statusEl) statusEl.textContent = result?.error || tt("Scan failed");
         return;
       }
       grabberLinks = result.links || [];
       renderGrabberList();
-      if (statusEl) statusEl.textContent = `Found ${grabberLinks.length} downloadable link${grabberLinks.length !== 1 ? "s" : ""}.`;
-      setStatus(`Grabber: ${grabberLinks.length} links found`);
+      if (statusEl) statusEl.textContent = `${tt("Found")} ${grabberLinks.length} ${tt("downloadable link")}${grabberLinks.length !== 1 ? "s" : ""}.`;
+      setStatus(`${tt("Grabber:")} ${grabberLinks.length} ${tt("links found")}`);
     } catch (e) {
-      if (statusEl) statusEl.textContent = window.tt("Error:") + " " + e.message;
-      setStatus("Grabber scan failed");
+      if (statusEl) statusEl.textContent = tt("Error:") + " " + e.message;
+      setStatus(tt("Grabber scan failed"));
     }
   });
 
@@ -148,7 +148,7 @@ https://example.com/file2.mp4
     const list = document.getElementById("grabberLinkList");
     if (!list) return;
     if (filtered.length === 0) {
-      list.innerHTML = `<div class="batch-empty">${grabberLinks.length ? (window.tt ? window.tt("No links match the filter.") : "No links match the filter.") : (window.tt ? window.tt("Enter a URL above and click 'Scan Page'.") : "Enter a URL above and click 'Scan Page'.")}</div>`;
+      list.innerHTML = `<div class="batch-empty">${grabberLinks.length ? tt("No links match the filter.") : tt("Enter a URL above and click 'Scan Page'.")}</div>`;
       return;
     }
     list.innerHTML = filtered.map(l => {
@@ -171,13 +171,13 @@ https://example.com/file2.mp4
 
   document.getElementById("btnGrabberDownload")?.addEventListener("click", async () => {
     const checked = [...document.querySelectorAll(".grabber-cb:checked")];
-    if (checked.length === 0) { setStatus("No links selected"); return; }
+    if (checked.length === 0) { setStatus(tt("No links selected")); return; }
     const urls = checked.map(cb => ({ url: cb.dataset.url, filename: cb.dataset.name }));
     closePanel(grabberPanel);
     const results = await api.batchAddDownloads?.(urls);
     let added = 0;
     for (const r of (results || [])) { if (r.ok) added++; }
-    setStatus(`Grabber: ${added} of ${urls.length} downloads added`);
+    setStatus(`${tt("Grabber:")} ${added} ${tt("of")} ${urls.length} ${tt("downloads added")}`);
     await loadDownloads();
   });
 
@@ -188,16 +188,16 @@ https://example.com/file2.mp4
     torrentFilesTaskId = taskId;
     const list = document.getElementById("torrentFilesList");
     if (!list) return;
-    list.innerHTML = `<div class="batch-empty">Loading…</div>`;
+    list.innerHTML = `<div class="batch-empty">${tt("Loading…")}</div>`;
     openPanel(torrentFilesPanel, taskId);
     try {
       const files = await api.getTorrentFiles?.(taskId) || [];
       if (files.length === 0) {
-        list.innerHTML = `<div class="batch-empty">No file list available yet (torrent may still be loading metadata).</div>`;
+        list.innerHTML = `<div class="batch-empty">${tt("No file list available yet (torrent may still be loading metadata).")}</div>`;
         return;
       }
       list.innerHTML = files.map(f => {
-        const name = f.name || f.path || `File ${f.index}`;
+        const name = f.name || f.path || `${tt("File")} ${f.index}`;
         const size = f.length ? fmt(f.length) : "—";
         return `<div class="batch-item">
           <input type="checkbox" class="tf-cb" data-index="${f.index}" ${f.selected ? "checked" : ""} />
@@ -211,7 +211,7 @@ https://example.com/file2.mp4
         });
       });
     } catch (e) {
-      list.innerHTML = `<div class="batch-empty">Error: ${escHtml(e.message)}</div>`;
+      list.innerHTML = `<div class="batch-empty">${tt("Error:")} ${escHtml(e.message)}</div>`;
     }
   }
 

@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.58` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.59` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.58-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.59-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.59](#whats-new-in-v0559)
 - [What's new in v0.5.58](#whats-new-in-v0558)
 - [What's new in v0.5.55](#whats-new-in-v0555)
 - [What's new in v0.5.54](#whats-new-in-v0554)
@@ -38,6 +39,28 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.59
+
+**The language selector now applies to the whole running UI, and browser-badge downloads
+recover from CDN 403s.** Two fixes:
+
+- **Language switch re-renders live.** v0.5.58 shipped the translation engine and 19
+  language files, but the dynamically-built parts of the UI (download rows and their
+  tooltips, header stats, category tree, tracer panel) weren't rebuilt when you changed
+  language, so the switch looked like it did nothing. The app now rebuilds those surfaces
+  on the language-change event — the download list, status/scan badges, stats, category
+  tree and tracer all switch on the spot (Arabic flips to right-to-left), no restart
+  needed. The right-click context menu stays English for now — its labels were never part
+  of the v0.5.58 key set, so translating it is a separate task rather than a regression.
+- **Browser badge 403 fallback (extension v0.40.0).** A download from the floating page
+  badge could fail with `Fetch failed: HTTP 403` even though the same URL worked via
+  "Add URL." The badge now falls back to letting the desktop app fetch the file (with a
+  proper `Referer` built from the originating page) whenever its own browser fetch is
+  rejected — the path that already worked for "Add URL." The googlevideo browser-fetch
+  path is unchanged and still tried first, so nothing that worked before regresses.
+
+Renderer- and extension-only, same as v0.5.58. See [`RELEASE.md`](./RELEASE.md) for detail.
 
 ## What's new in v0.5.58
 

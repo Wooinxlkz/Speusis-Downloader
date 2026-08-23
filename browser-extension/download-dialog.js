@@ -484,10 +484,10 @@ async function startDownload(later) {
   doDownload(url,filename,later,_pendingYtQuality||undefined);
 }
 
-async function doDownload(url, filename, later, ytQuality) {
+async function doDownload(url, filename, later, ytQuality, forceBackend) {
   const saveDir=saveDirField.value.trim();
 
-  if (_isStreamable && !later) {
+  if (_isStreamable && !later && !forceBackend) {
     // Download Later has no meaning for a stream we fetch ourselves right
     // now - fall through to the normal JSON flow so it's just queued as a
     // URL for the app to pick up whenever it starts (matches existing
@@ -541,14 +541,20 @@ async function streamDownload(url, filename, saveDir) {
   try {
     resp = await fetch(url, { credentials:"omit", referrerPolicy:"no-referrer" });
   } catch (e) {
-    setSpinner(false);
-    setStatus("Could not fetch the video: "+(e.message||e),"error");
-    return;
+    // Browser-side fetch failed outright (network/CORS). Fall back to letting
+    // the desktop app fetch it — the app can send a proper Referer built from
+    // pageUrl, which this chrome-extension:// page cannot. Same path "Add URL"
+    // uses successfully against hotlink/Referer-protected CDNs.
+    setStatus("Retrying via Speusis…","");
+    return doDownload(url, filename, false, _pendingYtQuality||undefined, true);
   }
   if (!resp.ok || !resp.body) {
-    setSpinner(false);
-    setStatus(`Fetch failed: HTTP ${resp.status||"?"}`,"error");
-    return;
+    // Non-OK (typically 403): a hotlink-protected CDN rejected this extension
+    // page's request for lack of a matching Referer/cookies. We can't add a
+    // cross-origin Referer from a chrome-extension:// origin, but the desktop
+    // app can — hand off to the backend path (exactly what "Add URL" does).
+    setStatus("Retrying via Speusis…","");
+    return doDownload(url, filename, false, _pendingYtQuality||undefined, true);
   }
 
   const total = Number(resp.headers.get("content-length")||0);

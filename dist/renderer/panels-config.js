@@ -73,7 +73,7 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     };
     await api.updateSettings(patch);
     closePanel(schedulerPanel);
-    setStatus("Scheduler settings saved");
+    setStatus(tt("Scheduler settings saved"));
   });
 
   /* ── Site Logins Panel ────────────────────────────────────────── */
@@ -87,7 +87,7 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     const creds = s.credentials || [];
     const list = document.getElementById("credentialList");
     if (creds.length === 0) {
-      list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">No saved credentials yet.</div>`;
+      list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">${tt("No saved credentials yet.")}</div>`;
       return;
     }
     list.innerHTML = creds.map(c => `
@@ -96,14 +96,14 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
           <div class="cred-domain">${escHtml(c.domain)}</div>
           <div class="cred-user">${escHtml(c.username)} / ••••••</div>
         </div>
-        <button class="cred-remove" data-domain="${escHtml(c.domain)}">Remove</button>
+        <button class="cred-remove" data-domain="${escHtml(c.domain)}">${tt("Remove")}</button>
       </div>`).join("");
 
     list.querySelectorAll(".cred-remove").forEach(btn => {
       btn.addEventListener("click", async () => {
         await api.removeCredential(btn.dataset.domain);
         await renderCredList();
-        setStatus(window.tt("Credential removed:") + " " + btn.dataset.domain);
+        setStatus(tt("Credential removed:") + " " + btn.dataset.domain);
       });
     });
   }
@@ -113,13 +113,13 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     const domain = document.getElementById("credDomain").value.trim();
     const user   = document.getElementById("credUser").value.trim();
     const pass   = document.getElementById("credPass").value;
-    if (!domain || !user) { setStatus("Domain and username required"); return; }
+    if (!domain || !user) { setStatus(tt("Domain and username required")); return; }
     await api.addCredential({ domain, username: user, password: pass });
     document.getElementById("credDomain").value = "";
     document.getElementById("credUser").value   = "";
     document.getElementById("credPass").value   = "";
     await renderCredList();
-    setStatus(window.tt("Credential saved:") + " " + domain);
+    setStatus(tt("Credential saved:") + " " + domain);
   });
 
   /* ── RSS Panel ─────────────────────────────────────────────────── */
@@ -132,19 +132,19 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     const feeds = await api.listRssFeeds();
     const list = document.getElementById("rssFeedList");
     if (!feeds || feeds.length === 0) {
-      list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">No RSS feeds configured yet.</div>`;
+      list.innerHTML = `<div style="padding:12px 16px;color:var(--muted);font-size:12px;">${tt("No RSS feeds configured yet.")}</div>`;
       return;
     }
     list.innerHTML = feeds.map(f => `
       <div class="rss-row">
-        <span class="rss-enabled ${f.enabled ? "on" : "off"}" title="${f.enabled ? "Active" : "Disabled"}"></span>
+        <span class="rss-enabled ${f.enabled ? "on" : "off"}" title="${f.enabled ? tt("Active") : tt("Disabled")}"></span>
         <div class="rss-info">
           <div class="rss-name">${escHtml(f.name)}</div>
           <div class="rss-url">${escHtml(f.url)}</div>
         </div>
         <div class="rss-actions">
-          <button class="rss-btn rss-fetch" data-id="${f.id}" title="Fetch now">↻</button>
-          <button class="rss-btn rss-toggle" data-id="${f.id}" data-enabled="${f.enabled}">${f.enabled ? "Disable" : "Enable"}</button>
+          <button class="rss-btn rss-fetch" data-id="${f.id}" title="${tt("Fetch now")}">↻</button>
+          <button class="rss-btn rss-toggle" data-id="${f.id}" data-enabled="${f.enabled}">${f.enabled ? tt("Disable") : tt("Enable")}</button>
           <button class="rss-btn rss-del" data-id="${f.id}">✕</button>
         </div>
       </div>`).join("");
@@ -152,8 +152,8 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     list.querySelectorAll(".rss-fetch").forEach(btn => {
       btn.addEventListener("click", async () => {
         btn.textContent = "…";
-        try { await api.fetchRssNow(btn.dataset.id); setStatus("RSS feed fetched"); }
-        catch { setStatus("RSS fetch failed"); }
+        try { await api.fetchRssNow(btn.dataset.id); setStatus(tt("RSS feed fetched")); }
+        catch { setStatus(tt("RSS fetch failed")); }
         btn.textContent = "↻";
       });
     });
@@ -167,7 +167,7 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     list.querySelectorAll(".rss-del").forEach(btn => {
       btn.addEventListener("click", async () => {
         await api.removeRssFeed(btn.dataset.id);
-        await renderRssFeeds(); setStatus("RSS feed removed");
+        await renderRssFeeds(); setStatus(tt("RSS feed removed"));
       });
     });
   }
@@ -179,14 +179,14 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     const filter   = document.getElementById("rssFeedFilter").value.trim() || undefined;
     const interval = parseInt(document.getElementById("rssFeedInterval").value) || 1800;
     const auto     = document.getElementById("rssFeedAuto").checked;
-    if (!name || !url) { setStatus("Name and URL required"); return; }
+    if (!name || !url) { setStatus(tt("Name and URL required")); return; }
     try {
       await api.addRssFeed({ name, url, enabled: true, autoDownload: auto, fetchInterval: interval, filter });
       document.getElementById("rssFeedName").value   = "";
       document.getElementById("rssFeedUrl").value    = "";
       document.getElementById("rssFeedFilter").value = "";
-      await renderRssFeeds(); setStatus(window.tt("RSS feed added:") + " " + name);
-    } catch (e) { setStatus(window.tt("Failed to add feed:") + " " + e.message); }
+      await renderRssFeeds(); setStatus(tt("RSS feed added:") + " " + name);
+    } catch (e) { setStatus(tt("Failed to add feed:") + " " + e.message); }
   });
 
   /* ── Create Torrent Panel ─────────────────────────────────────── */
@@ -202,20 +202,20 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     const statusEl = document.getElementById("torrentCreateStatus");
     statusEl.className = "torrent-status";
     statusEl.textContent = "";
-    if (!src) { setStatus("Choose a source file or folder first"); return; }
+    if (!src) { setStatus(tt("Choose a source file or folder first")); return; }
     try {
       const result = await api.createTorrent(src, "", name, tracker);
       if (result?.ok) {
         statusEl.className = "torrent-status ok";
-        statusEl.textContent = window.tt("Created:") + " " + result.outputPath;
-        setStatus(".torrent created successfully");
+        statusEl.textContent = tt("Created:") + " " + result.outputPath;
+        setStatus(tt(".torrent created successfully"));
       } else {
         statusEl.className = "torrent-status err";
-        statusEl.textContent = window.tt("Error:") + " " + (result?.error || window.tt("Unknown error"));
+        statusEl.textContent = tt("Error:") + " " + (result?.error || tt("Unknown error"));
       }
     } catch (e) {
       statusEl.className = "torrent-status err";
-      statusEl.textContent = window.tt("Error:") + " " + e.message;
+      statusEl.textContent = tt("Error:") + " " + e.message;
     }
   });
 

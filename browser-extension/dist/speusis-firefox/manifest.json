@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Speusis Downloader Capture",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "Capture downloads and detect HLS/DASH streams, then send them to the Speusis Downloader desktop app.",
   "permissions": [
     "downloads",
