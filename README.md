@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.55` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.58` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.55-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.58-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.58](#whats-new-in-v0558)
 - [What's new in v0.5.55](#whats-new-in-v0555)
 - [What's new in v0.5.54](#whats-new-in-v0554)
 - [What's new in v0.5.53](#whats-new-in-v0553)
@@ -37,6 +38,23 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.58
+
+**Full in-app localization — English plus 18 languages.** The Settings → Language
+selector is now fully functional: pick a language and the entire UI switches live
+(menus, buttons, dialogs, tooltips, status messages, and per-download status/scan
+badges), and the choice is remembered across restarts. Ships with Arabic, Chinese
+(Simplified), Danish, Dutch, French, German, Indonesian, Italian, Japanese, Korean,
+Polish, Portuguese (Brazil), Portuguese (Portugal), Romanian, Russian, Spanish,
+Swedish, and Turkish, with right-to-left layout for Arabic. Translations live in an
+editable `languages/` folder as plain `key: text` JSON; any missing or untranslated
+entry falls back to English automatically, so a partial edit can never blank the UI.
+Every shipped language is fully translated — all 18 files carry the same 487 keys as
+`en.json`, with no partial or English-only entries in the selector.
+This release is renderer-only (JS + translation data) plus the version bump — download,
+torrent, RSS, scanning, and updater behavior are unchanged from v0.5.57. See
+[`RELEASE.md`](./RELEASE.md) for the complete version history.
 
 ## What's new in v0.5.55
 

@@ -35,8 +35,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "icons/torrent.ico",
-      "resources/extension/speusis-downloader.crx"
+      "icons/torrent.ico"
     ],
     "license": "license.txt",
     "windows": {

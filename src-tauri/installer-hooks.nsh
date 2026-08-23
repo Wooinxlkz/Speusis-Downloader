@@ -89,46 +89,6 @@
 
   ; Tell Explorer to discard its cached association/icon lookup.
   System::Call 'shell32::SHChangeNotify(i, i, i, i) (0x08000000, 0, 0, 0)'
-
-  ; --- Browser extension registration ---
-  ; Registers the Speusis Capture extension as an "external extension" with
-  ; any installed Chromium browser that supports the standard mechanism
-  ; (Chrome, Edge, Brave). The browser reads these two registry values (path
-  ; to a local .crx + its version) and prompts the *user* to enable the
-  ; extension next time that browser opens - this is Chromium's own security
-  ; gate, it is never silent, and there is no way around that by design.
-  ;
-  ; Extension ID below is permanently tied to the private key at
-  ; signing-keys/speusis-extension-key.PRIVATE.pem (kept OUT of this
-  ; installer/repo - see signing-keys/README.txt). Every future .crx build
-  ; MUST be re-signed with that same key or this ID - and every install
-  ; referencing it - breaks.
-  !define EXT_ID "hjkbcgppiledipecakjfknpioephjipo"
-  !define EXT_VER "0.39.0"
-
-  ${If} ${FileExists} "$INSTDIR\resources\extension\speusis-downloader.crx"
-    ; Chrome
-    WriteRegStr SHCTX "Software\Google\Chrome\Extensions\${EXT_ID}" "path" "$INSTDIR\resources\extension\speusis-downloader.crx"
-    WriteRegStr SHCTX "Software\Google\Chrome\Extensions\${EXT_ID}" "version" "${EXT_VER}"
-    ; Edge
-    WriteRegStr SHCTX "Software\Microsoft\Edge\Extensions\${EXT_ID}" "path" "$INSTDIR\resources\extension\speusis-downloader.crx"
-    WriteRegStr SHCTX "Software\Microsoft\Edge\Extensions\${EXT_ID}" "version" "${EXT_VER}"
-    ; Brave
-    WriteRegStr SHCTX "Software\BraveSoftware\Brave-Browser\Extensions\${EXT_ID}" "path" "$INSTDIR\resources\extension\speusis-downloader.crx"
-    WriteRegStr SHCTX "Software\BraveSoftware\Brave-Browser\Extensions\${EXT_ID}" "version" "${EXT_VER}"
-    ; Arc - UNVERIFIED. Arc is Chromium-based and its installer is often
-    ; found under "TheBrowserCompany\Arc", so this key is written on the
-    ; chance Arc reads the same standard Chromium mechanism its engine
-    ; supports - but Arc publishes no enterprise/policy docs confirming
-    ; this, so there is no guarantee it does anything. Harmless if wrong:
-    ; an unread registry key, nothing more. Manual install from the Chrome
-    ; Web Store remains the reliable path for Arc users.
-    WriteRegStr SHCTX "Software\TheBrowserCompany\Arc\Extensions\${EXT_ID}" "path" "$INSTDIR\resources\extension\speusis-downloader.crx"
-    WriteRegStr SHCTX "Software\TheBrowserCompany\Arc\Extensions\${EXT_ID}" "version" "${EXT_VER}"
-    ; NOTE: Firefox cannot use this mechanism at all (needs a
-    ; Mozilla-signed .xpi, not a self-signed .crx) - continues to require
-    ; manual install from addons.mozilla.org.
-  ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
@@ -142,11 +102,4 @@
     DeleteRegValue SHCTX "Software\Classes\.torrent" ""
   ${EndIf}
   System::Call 'shell32::SHChangeNotify(i, i, i, i) (0x08000000, 0, 0, 0)'
-
-  ; Remove the external-extension registration added at install time.
-  !define un.EXT_ID "hjkbcgppiledipecakjfknpioephjipo"
-  DeleteRegKey SHCTX "Software\Google\Chrome\Extensions\${un.EXT_ID}"
-  DeleteRegKey SHCTX "Software\Microsoft\Edge\Extensions\${un.EXT_ID}"
-  DeleteRegKey SHCTX "Software\BraveSoftware\Brave-Browser\Extensions\${un.EXT_ID}"
-  DeleteRegKey SHCTX "Software\TheBrowserCompany\Arc\Extensions\${un.EXT_ID}"
 !macroend

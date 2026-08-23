@@ -63,7 +63,7 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
     ];
     const content = document.getElementById("propertiesContent");
     content.innerHTML = rows.map(([k, v]) =>
-      `<div class="sd-row"><span>${escHtml(k)}</span><strong style="word-break:break-all;text-align:right;max-width:300px;">${escHtml(String(v))}</strong></div>`
+      `<div class="sd-row"><span>${escHtml(window.tt ? window.tt(k) : k)}</span><strong style="word-break:break-all;text-align:right;max-width:300px;">${escHtml(String(v))}</strong></div>`
     ).join("");
     openPanel(propertiesDialog);
     document.getElementById("btnCloseProperties").onclick = () => closePanel(propertiesDialog);
@@ -90,11 +90,11 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
       // no-selection branch below reuses this same element with different
       // text, so this render path has to restore the default wording itself
       // rather than assume it was never changed.
-      empty.textContent = "No live segment data yet — segment info is only available while a multi-segment download is actively running.";
+      empty.textContent = (window.tt ? window.tt("No live segment data yet — segment info is only available while a multi-segment download is actively running.") : "No live segment data yet — segment info is only available while a multi-segment download is actively running.");
       empty.classList.remove("hidden");
-      if (summary) summary.textContent = "— segments";
+      if (summary) summary.textContent = (window.tt ? window.tt("— segments") : "— segments");
       if (speedEl) speedEl.textContent = "—";
-      if (activeEl) activeEl.textContent = "NO LIVE MAP";
+      if (activeEl) activeEl.textContent = (window.tt ? window.tt("NO LIVE MAP") : "NO LIVE MAP");
       return;
     }
     grid.classList.remove("hidden"); stats.classList.remove("hidden"); empty.classList.add("hidden");
@@ -120,7 +120,7 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
       ["Remaining",  fmt(remaining)],
       ["Segments",   `${doneCount} / ${map.totalSegments}`],
       ["Total size", fmt(map.totalBytes)],
-    ].map(([label, value]) => `<div class="sms-item"><div class="sms-label">${escHtml(label)}</div><div class="sms-value">${escHtml(value)}</div></div>`).join("");
+    ].map(([label, value]) => `<div class="sms-item"><div class="sms-label">${escHtml(window.tt ? window.tt(label) : label)}</div><div class="sms-value">${escHtml(value)}</div></div>`).join("");
   }
 
   async function openSegmentMapDialog(id) {
@@ -138,11 +138,11 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
       document.getElementById("segMapGrid").classList.add("hidden");
       document.getElementById("segMapStats").innerHTML = "";
       document.getElementById("segMapStats").classList.add("hidden");
-      document.getElementById("segMapSummary").textContent = "— segments";
+      document.getElementById("segMapSummary").textContent = (window.tt ? window.tt("— segments") : "— segments");
       document.getElementById("segMapSpeed").textContent = "—";
-      document.getElementById("segMapActive").textContent = "NO LIVE MAP";
+      document.getElementById("segMapActive").textContent = (window.tt ? window.tt("NO LIVE MAP") : "NO LIVE MAP");
       const empty = document.getElementById("segMapEmpty");
-      empty.textContent = "No download selected — pick one in the list, then open View map again.";
+      empty.textContent = (window.tt ? window.tt("No download selected — pick one in the list, then open View map again.") : "No download selected — pick one in the list, then open View map again.");
       empty.classList.remove("hidden");
       openPanel(segmentMapDialog, null);
       setStatus("Select a download first to view its segment map");
@@ -235,8 +235,8 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
           <span class="tracer-item-name">${escHtml(displayName(t))}</span>
           <span class="tracer-item-rate">${escHtml(rate)}</span>
         </div>
-        <div class="tracer-item-meta">${escHtml(receivedLabel)} · ${size > 0 ? escHtml(fmt(size)) : "size unknown"} · ${escHtml(label)}</div>
-        <div class="tracer-item-meta trace-submeta">${isActive ? "ETA " + escHtml(fmtSecs(t.etaSeconds || 0)) : (t.status === "failed" ? "download failed" : label)} · ${escHtml(String(segments))} segs</div>
+        <div class="tracer-item-meta">${escHtml(receivedLabel)} · ${size > 0 ? escHtml(fmt(size)) : (window.tt ? window.tt("size unknown") : "size unknown")} · ${escHtml(label)}</div>
+        <div class="tracer-item-meta trace-submeta">${isActive ? "ETA " + escHtml(fmtSecs(t.etaSeconds || 0)) : (t.status === "failed" ? (window.tt ? window.tt("download failed") : "download failed") : label)} · ${escHtml(String(segments))} segs</div>
         <div class="tracer-progress"><div class="tracer-progress-fill ${iconClass}" style="width:${pct}%"></div></div>
         <div class="tracer-item-footer">
           <span>${escHtml(t.outputPath ? "saved to " + t.outputPath : "source: " + (t.url || "").slice(0, 48))}</span>
@@ -293,7 +293,7 @@ export function initDialogs({ api, openPanel, closePanel, setStatus, taskStore, 
       await api.cancelDownload(id);
     }
     taskStore.delete(id); speedMap.delete(id); removeRow(id);
-    setStatus((deleteFromDisk ? "Completely deleted: " : "Deleted: ") + displayName(task));
+    setStatus((deleteFromDisk ? window.tt("Completely deleted:") + " " : window.tt("Deleted:") + " ") + displayName(task));
     updateStats(); scheduleCatTreeRender();
   }
 

@@ -103,7 +103,7 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
       btn.addEventListener("click", async () => {
         await api.removeCredential(btn.dataset.domain);
         await renderCredList();
-        setStatus("Credential removed: " + btn.dataset.domain);
+        setStatus(window.tt("Credential removed:") + " " + btn.dataset.domain);
       });
     });
   }
@@ -119,7 +119,7 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
     document.getElementById("credUser").value   = "";
     document.getElementById("credPass").value   = "";
     await renderCredList();
-    setStatus("Credential saved: " + domain);
+    setStatus(window.tt("Credential saved:") + " " + domain);
   });
 
   /* ── RSS Panel ─────────────────────────────────────────────────── */
@@ -185,8 +185,8 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
       document.getElementById("rssFeedName").value   = "";
       document.getElementById("rssFeedUrl").value    = "";
       document.getElementById("rssFeedFilter").value = "";
-      await renderRssFeeds(); setStatus("RSS feed added: " + name);
-    } catch (e) { setStatus("Failed to add feed: " + e.message); }
+      await renderRssFeeds(); setStatus(window.tt("RSS feed added:") + " " + name);
+    } catch (e) { setStatus(window.tt("Failed to add feed:") + " " + e.message); }
   });
 
   /* ── Create Torrent Panel ─────────────────────────────────────── */
@@ -207,15 +207,15 @@ export function initConfigPanels({ api, openPanel, closePanel, setStatus }) {
       const result = await api.createTorrent(src, "", name, tracker);
       if (result?.ok) {
         statusEl.className = "torrent-status ok";
-        statusEl.textContent = "Created: " + result.outputPath;
+        statusEl.textContent = window.tt("Created:") + " " + result.outputPath;
         setStatus(".torrent created successfully");
       } else {
         statusEl.className = "torrent-status err";
-        statusEl.textContent = "Error: " + (result?.error || "Unknown error");
+        statusEl.textContent = window.tt("Error:") + " " + (result?.error || window.tt("Unknown error"));
       }
     } catch (e) {
       statusEl.className = "torrent-status err";
-      statusEl.textContent = "Error: " + e.message;
+      statusEl.textContent = window.tt("Error:") + " " + e.message;
     }
   });
 

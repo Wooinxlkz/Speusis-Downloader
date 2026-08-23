@@ -125,7 +125,7 @@ https://example.com/file2.mp4
     try {
       const result = await api.grabberScan?.(url);
       if (!result || !result.ok) {
-        if (statusEl) statusEl.textContent = result?.error || "Scan failed";
+        if (statusEl) statusEl.textContent = result?.error || (window.tt ? window.tt("Scan failed") : "Scan failed");
         return;
       }
       grabberLinks = result.links || [];
@@ -133,7 +133,7 @@ https://example.com/file2.mp4
       if (statusEl) statusEl.textContent = `Found ${grabberLinks.length} downloadable link${grabberLinks.length !== 1 ? "s" : ""}.`;
       setStatus(`Grabber: ${grabberLinks.length} links found`);
     } catch (e) {
-      if (statusEl) statusEl.textContent = "Error: " + e.message;
+      if (statusEl) statusEl.textContent = window.tt("Error:") + " " + e.message;
       setStatus("Grabber scan failed");
     }
   });
@@ -148,7 +148,7 @@ https://example.com/file2.mp4
     const list = document.getElementById("grabberLinkList");
     if (!list) return;
     if (filtered.length === 0) {
-      list.innerHTML = `<div class="batch-empty">${grabberLinks.length ? "No links match the filter." : "Enter a URL above and click 'Scan Page'."}</div>`;
+      list.innerHTML = `<div class="batch-empty">${grabberLinks.length ? (window.tt ? window.tt("No links match the filter.") : "No links match the filter.") : (window.tt ? window.tt("Enter a URL above and click 'Scan Page'.") : "Enter a URL above and click 'Scan Page'.")}</div>`;
       return;
     }
     list.innerHTML = filtered.map(l => {

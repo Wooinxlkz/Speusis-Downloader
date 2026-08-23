@@ -942,3 +942,8 @@ body.tbl-column-resizing, body.tbl-column-resizing * {
   .media-player-body { flex-direction:column; height:min(560px, calc(100vh - 160px)); }
   .media-player-playlist { width:100%; border-left:0; border-top:1px solid var(--border); max-height:160px; }
 }
+
+/* ── i18n-rtl-support (Arabic) ────────────────────────────────────── */
+html[dir="rtl"] body { direction: rtl; }
+html[dir="rtl"] input, html[dir="rtl"] textarea, html[dir="rtl"] select { text-align: right; }
+html[dir="rtl"] input[type="url"], html[dir="rtl"] input[type="email"], html[dir="rtl"] input[type="password"], html[dir="rtl"] .ltr { direction: ltr; text-align: left; }
