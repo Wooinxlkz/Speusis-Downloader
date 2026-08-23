@@ -5,6 +5,40 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.62 — Complete UI localization across all languages
+
+Finishes the language switcher feature end-to-end. Every visible string in the app now
+responds to the selected language — settings panel, status bar, toolbar, menus, dialogs,
+and all panels.
+
+### Settings panel now translates on open
+
+applyTranslations() is now called inside openSettings() targeting the settings panel
+directly, so switching language and reopening settings shows the correct language
+immediately without a full restart.
+
+### Status bar messages now translate
+
+All setStatus() calls throughout app.js now use tt() — Paused, Resuming, Stopped,
+Extracting, Archive created, Refresh download address, Added to queue, Download limit,
+Upload limit, TLS settings, and ~40 more status messages are fully translated across all
+19 languages.
+
+### Dynamic UI strings now translate
+
+Button labels set via textContent at runtime (Activating…, Adding…) and dynamic counts
+("X downloads") now use tt() and update correctly on language switch.
+
+### 50+ new translation keys added
+
+All new tt() strings are backed by translations in all 19 language files: Arabic, Chinese,
+Danish, Dutch, French, German, Indonesian, Italian, Japanese, Korean, Polish, Portuguese
+(BR + PT), Romanian, Russian, Spanish, Swedish, Turkish.
+
+> package.json and Cargo.toml bumped to 0.5.62. Renderer-only release, no Rust rebuild required.
+
+---
+
 ## v0.5.61 — Full context menu localization + missing translation keys
 
 Completes the language switcher work started in v0.5.58 and continued in v0.5.59–v0.5.60.
