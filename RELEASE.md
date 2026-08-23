@@ -5,6 +5,50 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.61 — Full context menu localization + missing translation keys
+
+Completes the language switcher work started in v0.5.58 and continued in v0.5.59–v0.5.60.
+The UI is now fully translated end-to-end — no visible English strings remain when a
+non-English language is selected.
+
+### Right-click context menu now translates
+
+All 22 context menu items are now localized — Open, Open with…, Open folder, Play with
+Speusis, Extract Here, Extract to…, Add to Zip Archive…, Move/Rename, Redownload, Resume
+Download, Pause Download, Stop Download, Refresh download address, Delete, Add to queue,
+Delete from queue, On Double click, Copy URL, Properties, Segment Map, Tracer, and Torrent
+Files…. Each item has a `data-i18n` attribute wired to a new key in all 19 language files.
+
+### Missing translation keys added
+
+Six strings that were wrapped in `tt()` in v0.5.60 but had no matching key in any language
+file — and therefore always fell back to English — are now fully translated across all 19
+languages: "No matching links found.", "No saved credentials yet.", "No RSS feeds
+configured yet.", "No other playable downloads yet.", "No downloads to show.", and
+"Load URLs".
+
+### Cleanup
+
+Removed all remaining `window.tt ? window.tt('x') : 'x'` defensive guards from
+`panels-transfer.js`, `panels-config.js`, `panels-media.js`, and `dialogs.js` — replaced
+with direct `tt('x')` calls. `i18n.js` is always loaded first so the guard was dead code.
+
+> `package.json` and `Cargo.toml` bumped to `0.5.61`. No Rust/backend logic changed;
+> this is a renderer-only release.
+
+---
+
+## v0.5.60 — Language switcher extended to panels and dialogs
+
+Continued localization work: wrapped translatable strings across `panels-transfer.js`,
+`panels-config.js`, `panels-media.js`, and `dialogs.js` with `t()`/`tt()` calls.
+The `i18n:changed` event handler introduced in v0.5.59 now triggers re-renders across
+all four panel files, so switching language updates the full UI without a restart.
+
+> Right-click context menu remained English in this release — addressed in v0.5.61.
+
+---
+
 ## v0.5.59 — Language switcher applies live + browser badge 403 fallback
 
 Two fixes in one release: the Settings → Language selector now actually re-renders the
