@@ -9,28 +9,78 @@ project README; v0.5.58 documents the localization work in this build.
 
 Fixes the startup "New version of Speusis is available" prompt.
 
-### Duplicate logo removed
+- Removed a duplicate logo in the dialog's title bar — the header-builder only
+stripped an existing `<svg>` icon before adding its own, but this dialog ships a
+hardcoded `<img>` logo, so the old one never got removed.
+- The prompt now opens as its own separate OS window (like Options, RSS, About)
+instead of rendering clamped inside the main app window — the native-window
+plumbing already existed for it, it just wasn't being triggered.
+- Background update-check interval shortened from 3 hours to 15 minutes so a
+new release is detected much sooner.
 
-The dialog's title bar was showing two logos. `prepareDialogHeaders()` only stripped an
-existing `<svg>` icon before inserting its own `<img>` logo, but this dialog already ships
-a hardcoded `<img>` logo in its markup — so the old one was never removed and a second one
-was added on top. It now strips any existing `<svg>` **or** `<img>` icon first.
+---
 
-### Now opens as its own separate window
+## v0.5.63 — Critical crash fixes (TDZ + tt undefined)
 
-Previously the auto-update prompt rendered as an overlay clamped inside the main app
-window, even though the native separate-window system (used for Options, RSS, About, etc.)
-already had this dialog fully configured (title, size, allow-listed panel id) — it just
-wasn't being triggered. The startup prompt now calls `api.openPanel("autoUpdateDialog")`
-so it opens as a real, independent OS window like the others.
+Hotfix for regressions introduced in v0.5.62. The language localization work exposed
+several pre-existing bugs that only surfaced once the UI was exercised earlier in the
+load cycle.
 
-### Faster release detection
+### tt is not defined in refreshSettings()
 
-The background update check now re-polls every 15 minutes instead of every 3 hours, so a
-release published mid-session is picked up much sooner instead of potentially sitting
-undetected for hours.
+`refreshSettings()` called `tt()` (the i18n lookup function) before `window.tt` was set
+by `i18n.js`. Fixed with a local `_tt = window.tt || (s => s)` fallback so the settings
+panel always renders safely regardless of load order.
 
-> `package.json` and `Cargo.toml` bumped to `0.5.64`.
+### Cannot access X before initialization (Temporal Dead Zone)
+
+14 references to panel functions (`openRenameDialog`, `openPropertiesDialog`,
+`openSegmentMapDialog`, `openTracerPanel`, `openTorrentFilesPanel`, `showDeleteConfirm`,
+and others) were called before their `const` declarations at lines 1881–1890. This caused
+a JavaScript Temporal Dead Zone crash that broke every toolbar button and right-click
+action. All early references are now wrapped in `try/catch` guards.
+
+The `stopSegMapPoll` / `stopTracerPoll` calls in `stopPanelActivity()` (line 122) were
+similarly guarded. The `openBatchPanel`, `openLoginsPanel`, `openSchedulerPanel`,
+`openRssPanel`, and `openGrabberPanel` event listeners and keyboard shortcut handlers
+were also already guarded in v0.5.62 — this release extends the same pattern to all
+remaining unguarded call sites.
+
+> package.json and Cargo.toml bumped to 0.5.63. Renderer-only release, no Rust rebuild required.
+
+---
+
+## v0.5.62 — Complete UI localization across all languages
+
+Finishes the language switcher feature end-to-end. Every visible string in the app now
+responds to the selected language — settings panel, status bar, toolbar, menus, dialogs,
+and all panels.
+
+### Settings panel now translates on open
+
+applyTranslations() is now called inside openSettings() targeting the settings panel
+directly, so switching language and reopening settings shows the correct language
+immediately without a full restart.
+
+### Status bar messages now translate
+
+All setStatus() calls throughout app.js now use tt() — Paused, Resuming, Stopped,
+Extracting, Archive created, Refresh download address, Added to queue, Download limit,
+Upload limit, TLS settings, and ~40 more status messages are fully translated across all
+19 languages.
+
+### Dynamic UI strings now translate
+
+Button labels set via textContent at runtime (Activating…, Adding…) and dynamic counts
+("X downloads") now use tt() and update correctly on language switch.
+
+### 50+ new translation keys added
+
+All new tt() strings are backed by translations in all 19 language files: Arabic, Chinese,
+Danish, Dutch, French, German, Indonesian, Italian, Japanese, Korean, Polish, Portuguese
+(BR + PT), Romanian, Russian, Spanish, Swedish, Turkish.
+
+> package.json and Cargo.toml bumped to 0.5.62. Renderer-only release, no Rust rebuild required.
 
 ---
 

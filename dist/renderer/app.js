@@ -98,7 +98,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); openPanel(addUrlPanel); urlInput.focus();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === "m") {
-    e.preventDefault(); if (selectedId && !isPanelOpen()) openRenameDialog(selectedId);
+    e.preventDefault(); if (selectedId && !isPanelOpen()) try { openRenameDialog(selectedId); } catch(_e) { console.warn(_e); }
   }
   if (e.key === "Escape") { closeMenuDropdown(); closeAllPanels(); }
   if (e.key === "Delete" && selectedId && !isPanelOpen()) {
@@ -119,8 +119,8 @@ function resetDialogPosition(panel) {
 }
 
 function stopPanelActivity(panel) {
-  if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll();
-  if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll();
+  try { if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll(); } catch(e) {}
+  try { if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll(); } catch(e) {}
   // Pauses any <video>/<audio> left playing inside a panel that's being
   // closed/hidden (e.g. clicking outside it, Escape, or switching to a
   // different panel) — covers mediaPlayerPanel without a hardcoded
@@ -805,23 +805,23 @@ async function handleRowAction(id, action) {
       await api.pauseDownload(id);
       taskStore.set(id, { ...task, status: "paused" });
       speedMap.set(id, 0); upsertRow(taskStore.get(id));
-      setStatus("Paused: " + displayName(task)); break;
+      setStatus(tt("Paused:") + " " + displayName(task)); break;
     }
     case "resume": {
       if (task.status === "paused") {
         await api.resumeDownload(id);
         taskStore.set(id, { ...task, status: "queued" });
-        upsertRow(taskStore.get(id)); setStatus("Resuming: " + displayName(task));
+        upsertRow(taskStore.get(id)); setStatus(tt("Resuming:") + " " + displayName(task));
       } else if (task.status === "failed" || task.status === "cancelled") {
         const fresh = await api.addDownload({ url: task.url, filename: task.filename, label: task.label });
         if (fresh?.id) {
           taskStore.delete(id); speedMap.delete(id); removeRow(id);
           taskStore.set(fresh.id, { ...fresh, createdAt: Date.now() });
           upsertRow(taskStore.get(fresh.id));
-          setStatus("Restarted: " + displayName(fresh));
+          setStatus(tt("Restarted:") + " " + displayName(fresh));
         }
       } else {
-        setStatus("Cannot resume — download is " + (task.status || "unknown"));
+        setStatus(tt("Cannot resume — download is") + " " + (task.status || tt("unknown")));
       }
       break;
     }
@@ -829,7 +829,7 @@ async function handleRowAction(id, action) {
       await api.cancelDownload(id);
       taskStore.set(id, { ...task, status: "cancelled" });
       speedMap.set(id, 0); upsertRow(taskStore.get(id));
-      setStatus("Stopped: " + displayName(task)); break;
+      setStatus(tt("Stopped:") + " " + displayName(task)); break;
     }
     case "redownload": {
       const fresh = await api.addDownload({ url: task.url, filename: task.filename, label: task.label });
@@ -837,12 +837,12 @@ async function handleRowAction(id, action) {
         taskStore.delete(id); speedMap.delete(id); removeRow(id);
         taskStore.set(fresh.id, { ...fresh, createdAt: Date.now() });
         upsertRow(taskStore.get(fresh.id));
-        setStatus("Re-queued: " + displayName(fresh));
+        setStatus(tt("Re-queued:") + " " + displayName(fresh));
       }
       break;
     }
     case "delete": {
-      await showDeleteConfirm(id);
+      try { await showDeleteConfirm(id); } catch(_e) { console.warn(_e); }
       break;
     }
     case "copyurl": {
@@ -853,16 +853,16 @@ async function handleRowAction(id, action) {
     case "play": {
       try {
         await openMediaPlayerPanel(id);
-        setStatus("Playing: " + displayName(task));
-      } catch (e) { setStatus("Couldn't open the player — " + (e?.message || e)); }
+        setStatus(tt("Playing:") + " " + displayName(task));
+      } catch (e) { setStatus(tt("Couldn't open the player —") + " " + (e?.message || e)); }
       break;
     }
     case "extract-here": {
-      setStatus("Extracting: " + displayName(task) + "…");
+      setStatus(tt("Extracting:") + " " + displayName(task) + "…");
       try {
         const result = await api.archiveExtractHere(id);
         setStatus(`Extracted ${result.fileCount} file${result.fileCount !== 1 ? "s" : ""} to ${result.destDir}`);
-      } catch (e) { setStatus("Extract failed — " + (e?.message || e)); }
+      } catch (e) { setStatus(tt("Extract failed —") + " " + (e?.message || e)); }
       break;
     }
     case "extract-to": {
@@ -872,7 +872,7 @@ async function handleRowAction(id, action) {
       } catch (e) {
         // A cancelled folder picker rejects too — don't show that as an error.
         if (!/no destination folder/i.test(String(e?.message || e))) {
-          setStatus("Extract failed — " + (e?.message || e));
+          setStatus(tt("Extract failed —") + " " + (e?.message || e));
         }
       }
       break;
@@ -880,10 +880,10 @@ async function handleRowAction(id, action) {
     case "create-zip": {
       try {
         const outputPath = await api.archiveCreateZip(id);
-        setStatus("Archive created: " + outputPath);
+        setStatus(tt("Archive created:") + " " + outputPath);
       } catch (e) {
         if (!/no output location/i.test(String(e?.message || e))) {
-          setStatus("Couldn't create archive — " + (e?.message || e));
+          setStatus(tt("Couldn't create archive —") + " " + (e?.message || e));
         }
       }
       break;
@@ -891,61 +891,61 @@ async function handleRowAction(id, action) {
     case "open": {
       try {
         const result = await api.openFile(id);
-        if (result?.ok) setStatus("Opening: " + displayName(task));
+        if (result?.ok) setStatus(tt("Opening:") + " " + displayName(task));
         else setStatus("Cannot open — " + (result?.error || "file not ready"));
-      } catch { setStatus("Cannot open — file may not be complete."); }
+      } catch { setStatus(tt("Cannot open — file may not be complete.")); }
       break;
     }
     case "openwith": {
       try {
         const result = await api.openWith(id);
-        if (result?.ok) setStatus("Opening with system dialog…");
+        if (result?.ok) setStatus(tt("Opening with system dialog…"));
         else setStatus("Cannot open — " + (result?.error || "file not ready"));
-      } catch { setStatus("Open with failed."); }
+      } catch { setStatus(tt("Open with failed.")); }
       break;
     }
     case "openfolder": {
       try {
         const result = await api.openFolder(id);
-        if (result?.ok) setStatus("Opened folder for: " + displayName(task));
+        if (result?.ok) setStatus(tt("Opened folder for:") + " " + displayName(task));
         else setStatus("Cannot open folder — " + (result?.error || "file not ready"));
-      } catch { setStatus("Cannot open folder."); }
+      } catch { setStatus(tt("Cannot open folder.")); }
       break;
     }
     case "rename": {
-      openRenameDialog(id); break;
+      try { openRenameDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "refreshurl": {
-      setStatus("Refresh download address — re-queuing…");
+      setStatus(tt("Refresh download address — re-queuing…"));
       const fresh = await api.addDownload({ url: task.url, filename: task.filename, label: task.label });
       if (fresh?.id) {
         taskStore.delete(id); speedMap.delete(id); removeRow(id);
         taskStore.set(fresh.id, { ...fresh, createdAt: Date.now() });
         upsertRow(taskStore.get(fresh.id));
-        setStatus("Download refreshed: " + displayName(fresh));
+        setStatus(tt("Download refreshed:") + " " + displayName(fresh));
       }
       break;
     }
     case "addqueue": {
-      setStatus("Added to queue: " + displayName(task)); break;
+      setStatus(tt("Added to queue:") + " " + displayName(task)); break;
     }
     case "removequeue": {
-      setStatus("Removed from queue: " + displayName(task)); break;
+      setStatus(tt("Removed from queue:") + " " + displayName(task)); break;
     }
     case "ondblclick": {
-      setStatus("Double-click action not changed."); break;
+      setStatus(tt("Double-click action not changed.")); break;
     }
     case "properties": {
-      openPropertiesDialog(id); break;
+      try { openPropertiesDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "segmentmap": {
-      openSegmentMapDialog(id); break;
+      try { openSegmentMapDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "tracer": {
-      openTracerPanel(); break;
+      try { openTracerPanel(); } catch(_e) { console.warn(_e); } break;
     }
     case "torrent-files": {
-      openTorrentFilesPanel(id); break;
+      try { openTorrentFilesPanel(id); } catch(_e) { console.warn(_e); } break;
     }
   }
   updateStats(); scheduleCatTreeRender();
@@ -1049,7 +1049,7 @@ function updateStats() {
   statActive.textContent    = active;
   statCompleted.textContent = done;
   statSpeed.textContent     = fmt(speed) + "/s";
-  statCount.textContent     = `${tasks.length} download${tasks.length!==1?"s":""}`;
+  statCount.textContent     = `${tasks.length} ${tasks.length!==1 ? tt("downloads") : tt("download")}`;
 }
 
 function setStatus(msg) {
@@ -1207,10 +1207,10 @@ document.getElementById("btnOpenTorrent").addEventListener("click", async () => 
   updateStats(); scheduleCatTreeRender();
 });
 
-document.getElementById("btnBatchDownload").addEventListener("click", () => openBatchPanel());
-document.getElementById("btnScheduler").addEventListener("click",     () => openSchedulerPanel());
-document.getElementById("btnLogins").addEventListener("click",         () => openLoginsPanel());
-document.getElementById("btnRss").addEventListener("click",            () => openRssPanel());
+document.getElementById("btnBatchDownload").addEventListener("click", () => { try { openBatchPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnScheduler").addEventListener("click",     () => { try { openSchedulerPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnLogins").addEventListener("click",         () => { try { openLoginsPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnRss").addEventListener("click",            () => { try { openRssPanel(); } catch(e) { console.warn(e); } });
 document.getElementById("btnCreateTorrent").addEventListener("click",  () => openPanel(createTorrentPanel));
 
 document.getElementById("btnCancelAdd").addEventListener("click", () => { closePanel(addUrlPanel); dlForm.reset(); });
@@ -1245,7 +1245,7 @@ document.getElementById("btnResumeAll").addEventListener("click", resumeAllPause
 async function resumeAllPaused() {
   const paused = [...taskStore.values()].filter(t => t.status === "paused");
   for (const t of paused) await handleRowAction(t.id, "resume");
-  if (paused.length === 0) setStatus("No paused downloads to resume");
+  if (paused.length === 0) setStatus(tt("No paused downloads to resume"));
 }
 
 document.getElementById("btnPauseSelected").addEventListener("click", () => {
@@ -1254,15 +1254,15 @@ document.getElementById("btnPauseSelected").addEventListener("click", () => {
     if (task && ["running","queued"].includes(task.status)) {
       handleRowAction(selectedId, "pause");
     } else {
-      setStatus("Select an active download to pause");
+      setStatus(tt("Select an active download to pause"));
     }
   } else {
-    setStatus("Select a download first");
+    setStatus(tt("Select a download first"));
   }
 });
 
 document.getElementById("btnStopSelected").addEventListener("click", () => {
-  if (selectedId) handleRowAction(selectedId, "stop"); else setStatus("Select a download first");
+  if (selectedId) handleRowAction(selectedId, "stop"); else setStatus(tt("Select a download first"));
 });
 document.getElementById("btnStopAll").addEventListener("click", async () => {
   const active = [...taskStore.values()].filter(t => ["running","queued"].includes(t.status));
@@ -1270,7 +1270,7 @@ document.getElementById("btnStopAll").addEventListener("click", async () => {
   setStatus(`Stopped ${active.length} download${active.length !== 1 ? "s" : ""}`);
 });
 document.getElementById("btnDelete").addEventListener("click", () => {
-  if (selectedId) handleRowAction(selectedId, "delete"); else setStatus("Select a download first");
+  if (selectedId) handleRowAction(selectedId, "delete"); else setStatus(tt("Select a download first"));
 });
 document.getElementById("btnDeleteCompleted").addEventListener("click", () => deleteByStatus(["completed","cancelled"]));
 async function deleteByStatus(statuses) {
@@ -1411,7 +1411,7 @@ document.addEventListener("click", closeMenuDropdown);
 const nativeMenuActions = {
   "add-url": () => { openPanel(addUrlPanel); urlInput.focus(); },
   "open-torrent": () => document.getElementById("btnOpenTorrent")?.click(),
-  "batch-download": () => openBatchPanel(),
+  "batch-download": () => { try { openBatchPanel(); } catch(e) { console.warn(e); } },
   "resume-all": () => resumeAllPaused(),
   "pause-selected": () => document.getElementById("btnPauseSelected")?.click(),
   "stop-selected": () => document.getElementById("btnStopSelected")?.click(),
@@ -1419,13 +1419,13 @@ const nativeMenuActions = {
   "delete-selected": () => document.getElementById("btnDelete")?.click(),
   "delete-completed": () => deleteByStatus(["completed","cancelled"]),
   "choose-dir": () => chooseDir(),
-  "logins": () => openLoginsPanel(),
+  "logins": () => { try { openLoginsPanel(); } catch(e) { console.warn(e); } },
   "start-queue": () => resumeAllPaused(),
   "stop-queue": () => stopAllQueued(),
-  "scheduler": () => openSchedulerPanel(),
-  "rss": () => openRssPanel(),
+  "scheduler": () => { try { openSchedulerPanel(); } catch(e) { console.warn(e); } },
+  "rss": () => { try { openRssPanel(); } catch(e) { console.warn(e); } },
   "create-torrent": () => openPanel(createTorrentPanel),
-  "web-grabber": () => openGrabberPanel(),
+  "web-grabber": () => { try { openGrabberPanel(); } catch(e) { console.warn(e); } },
   "basket": () => api.openBasket?.(),
   "toggle-toolbar": () => toggleToolbar(),
   "toggle-categories": () => toggleCatPanel(),
@@ -1445,6 +1445,7 @@ async function openSettings() {
   await refreshSettings();
   selectSettingsTab("general");
   openPanel(settingsPanel);
+  window.i18n?.applyTranslations(settingsPanel);
 }
 document.getElementById("btnCloseSettings").addEventListener("click", () => closePanel(settingsPanel));
 document.getElementById("btnCloseAbout").addEventListener("click", () => closePanel(aboutPanel));
@@ -1477,7 +1478,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
     const error = result?.error ?? null;
     if (info) {
       statusEl.style.color = "#86efac";
-      statusEl.textContent = `v${info.version} is available! Downloading now starts from the update banner.`;
+      statusEl.textContent = tt("v") + info.version + " " + tt("is available! Downloading now starts from the update banner.");
       // The main window shows the actual banner via the update-available
       // event the backend now emits (see update_check in commands.rs) -
       // toggling #updateBanner here only ever touched this popup's own
@@ -1488,7 +1489,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
       console.warn("[Speusis] Update check failed:", error);
     } else {
       statusEl.style.color = "#86efac";
-      statusEl.textContent = `You're up to date! (v${_appVersion} is the latest)`;
+      statusEl.textContent = tt("You're up to date!") + " (v" + _appVersion + " " + tt("is the latest") + ")";
     }
   } catch {
     statusEl.style.color = "#f87171";
@@ -1548,7 +1549,7 @@ function updateRegBadge() {
   const badge = document.getElementById("regStatusBadge");
   const menuItem = document.querySelector('.menu-item[data-menu="Registration"]');
   const aboutVersionEl = document.getElementById("aboutVersionText");
-  if (aboutVersionEl) aboutVersionEl.textContent = `Version ${_appVersion} — Windows`;
+  if (aboutVersionEl) aboutVersionEl.textContent = tt("Version") + " " + _appVersion + " — Windows";
   document.title = `Speusis v${_appVersion}`;
   const settingsVersionEl = document.getElementById("settingsVersionText");
   if (settingsVersionEl) settingsVersionEl.textContent = `Speusis v${_appVersion}`;
@@ -1664,7 +1665,7 @@ if (btnRegActivate) {
     const ki = document.getElementById("regKeyInput");
     const origText = btnRegActivate.textContent;
     btnRegActivate.disabled = true;
-    btnRegActivate.textContent = "Activating…";
+    btnRegActivate.textContent = tt("Activating…");
     try {
       // Real validation now happens in the Rust backend (checksummed
       // against name+email, device-locked for Monthly/Trial) instead of
@@ -1721,13 +1722,14 @@ async function refreshSettings() {
   if (seedRatioEl)       seedRatioEl.value       = s.seedRatio ?? 1.0;
   if (tempDirEl)         tempDirEl.value         = s.tempDir ?? "";
 
-  const fields = { "Download Directory": s.downloadDir };
+  const _tt = window.tt || (s => s);
+  const fields = { [_tt("Download Directory")]: s.downloadDir };
   settingsDet.innerHTML = Object.entries(fields)
     .map(([k,v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v??"-"))}</strong></div>`)
     .join("");
   const advancedDetails = document.querySelector(".settings-details-advanced");
   if (advancedDetails) {
-    advancedDetails.innerHTML = [["Engine", "Speusis multi-segment core"]]
+    advancedDetails.innerHTML = [[_tt("Engine"), "Speusis multi-segment core"]]
       .map(([k, v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v ?? "-"))}</strong></div>`).join("");
   }
   return s;
@@ -1795,11 +1797,11 @@ document.getElementById("autoStartWithSystem")?.addEventListener("change", async
 });
 document.getElementById("minimizeToTray")?.addEventListener("change", async e => {
   await api.updateSettings({ minimizeToTray: e.target.checked });
-  setStatus(e.target.checked ? "Minimize to tray enabled" : "Minimize to tray disabled");
+  setStatus(e.target.checked ? tt("Minimize to tray enabled") : tt("Minimize to tray disabled"));
 });
 document.getElementById("fileTypeRouting")?.addEventListener("change", async e => {
   await api.updateSettings({ fileTypeRouting: e.target.checked });
-  setStatus(e.target.checked ? "File routing enabled (Video, Music, Documents…)" : "File routing disabled");
+  setStatus(e.target.checked ? tt("File routing enabled (Video, Music, Documents…)") : tt("File routing disabled"));
 });
 document.getElementById("ipBlocklistUrl")?.addEventListener("change", async e => {
   await api.updateSettings({ ipBlocklistUrl: e.target.value.trim() });
@@ -1808,20 +1810,20 @@ document.getElementById("ipBlocklistUrl")?.addEventListener("change", async e =>
 document.getElementById("maxRetries")?.addEventListener("change", async e => {
   const v = parseInt(e.target.value) || 0;
   await api.updateSettings({ maxRetries: Math.max(0, Math.min(20, v)) });
-  setStatus("Max retries set to " + v);
+  setStatus(tt("Max retries set to") + " " + v);
 });
 
 maxConcurrentEl?.addEventListener("change", async e => {
   const v = Math.max(1, Math.min(20, parseInt(e.target.value) || 1));
   e.target.value = v;
   await api.updateSettings({ maxConcurrentDownloads: v });
-  setStatus("Max concurrent downloads set to " + v);
+  setStatus(tt("Max concurrent downloads set to") + " " + v);
 });
 defaultSegmentsEl?.addEventListener("change", async e => {
   const v = Math.max(1, Math.min(32, parseInt(e.target.value) || 1));
   e.target.value = v;
   await api.updateSettings({ defaultSegments: v });
-  setStatus("Segments per download set to " + v + " (applies to new downloads)");
+  setStatus(tt("Segments per download set to") + " " + v + " " + tt("(applies to new downloads)"));
 });
 document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
   // openSegmentMapDialog() already handles a missing/null selectedId by
@@ -1829,19 +1831,19 @@ document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
   // it must always be called so the card actually appears, instead of
   // this handler swallowing the no-selection case before the dialog ever
   // gets a chance to open.
-  openSegmentMapDialog(selectedId);
+  try { openSegmentMapDialog(selectedId); } catch(_e) { console.warn(_e); }
 });
 downloadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
   e.target.value = kb;
   await api.updateSettings({ downloadLimit: kb * 1024 });
-  setStatus(kb ? `Download limit set to ${kb} KB/s` : "Download limit removed");
+  setStatus(kb ? tt("Download limit set to") + " " + kb + " KB/s" : tt("Download limit removed"));
 });
 uploadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
   e.target.value = kb;
   await api.updateSettings({ uploadLimit: kb * 1024 });
-  setStatus(kb ? `Upload limit set to ${kb} KB/s` : "Upload limit removed");
+  setStatus(kb ? tt("Upload limit set to") + " " + kb + " KB/s" : tt("Upload limit removed"));
 });
 listenerPortEl?.addEventListener("change", async e => {
   const v = Math.max(1024, Math.min(65535, parseInt(e.target.value) || 9999));
@@ -1859,13 +1861,13 @@ remoteAccessEl?.addEventListener("change", async e => {
 });
 allowInvalidTlsEl?.addEventListener("change", async e => {
   await api.updateSettings({ allowInvalidTls: e.target.checked });
-  setStatus(e.target.checked ? "Invalid TLS certificates allowed" : "Strict TLS certificates required");
+  setStatus(e.target.checked ? tt("Invalid TLS certificates allowed") : tt("Strict TLS certificates required"));
 });
 seedRatioEl?.addEventListener("change", async e => {
   const v = Math.max(0, parseFloat(e.target.value) || 0);
   e.target.value = v;
   await api.updateSettings({ seedRatio: v });
-  setStatus("Default seed ratio goal set to " + v);
+  setStatus(tt("Default seed ratio goal set to") + " " + v);
 });
 tempDirEl?.addEventListener("change", async e => {
   const v = e.target.value.trim();
@@ -1912,22 +1914,22 @@ async function initializeNativePanel() {
       openGrabberPanel();
       break;
     case "torrentFilesPanel":
-      await openTorrentFilesPanel(nativePanelTaskId);
+      try { await openTorrentFilesPanel(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "renameDialog":
-      openRenameDialog(nativePanelTaskId);
+      try { openRenameDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "propertiesDialog":
-      openPropertiesDialog(nativePanelTaskId);
+      try { openPropertiesDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "segmentMapDialog":
-      openSegmentMapDialog(nativePanelTaskId);
+      try { openSegmentMapDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "tracerPanel":
-      openTracerPanel();
+      try { openTracerPanel(); } catch(_e) { console.warn(_e); }
       break;
     case "deleteConfirmDialog":
-      showDeleteConfirm(nativePanelTaskId);
+      try { showDeleteConfirm(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "registrationPanel":
       openRegistrationPanel();
@@ -2095,7 +2097,7 @@ function initUpdateBanner() {
     if (!url) return;
     const origText = ubDownload.textContent;
     ubDownload.disabled = true;
-    ubDownload.textContent = "Adding…";
+    ubDownload.textContent = tt("Adding…");
     try {
       const result = await api.addDownload({ url, start: true, label: banner.dataset.version ? `Speusis v${banner.dataset.version} Setup` : "Speusis Update Setup" });
       if (result?.id) {
@@ -2107,7 +2109,7 @@ function initUpdateBanner() {
       } else {
         ubDownload.disabled = false;
         ubDownload.textContent = origText;
-        setStatus("Could not add update to download list — opening in browser…");
+        setStatus(tt("Could not add update to download list — opening in browser…"));
         setTimeout(() => api.openUpdateDownload(url), 600);
       }
     } catch {
@@ -2202,7 +2204,7 @@ document.getElementById("btnAutoUpdateYes")?.addEventListener("click", async () 
   if (!url) { closePanel(autoUpdateDialog); return; }
   const origText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "Adding…";
+  btn.textContent = tt("Adding…");
   try {
     const result = await api.addDownload({ url, start: true, label: `Speusis v${_appVersion} Setup` });
     if (result?.id) {
@@ -2214,7 +2216,7 @@ document.getElementById("btnAutoUpdateYes")?.addEventListener("click", async () 
     } else {
       btn.disabled = false;
       btn.textContent = origText;
-      setStatus("Could not add update to download list — opening in browser…");
+      setStatus(tt("Could not add update to download list — opening in browser…"));
       setTimeout(() => api.openUpdateDownload(url), 600);
       closePanel(autoUpdateDialog);
     }

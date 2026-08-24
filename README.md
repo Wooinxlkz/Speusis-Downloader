@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.59` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.62` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.59-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.63-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,10 @@
 
 ## Table of contents
 
+- [What's new in v0.5.63](#whats-new-in-v0563)
+- [What's new in v0.5.62](#whats-new-in-v0562)
+- [What's new in v0.5.61](#whats-new-in-v0561)
+- [What's new in v0.5.60](#whats-new-in-v0560)
 - [What's new in v0.5.59](#whats-new-in-v0559)
 - [What's new in v0.5.58](#whats-new-in-v0558)
 - [What's new in v0.5.55](#whats-new-in-v0555)
@@ -39,6 +43,31 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.63
+
+Hotfix: resolved critical crashes from v0.5.62 — `tt is not defined` in settings panel
+and 14 Temporal Dead Zone errors that broke toolbar buttons and right-click actions.
+See [`RELEASE.md`](./RELEASE.md) for full detail.
+
+## What's new in v0.5.62
+
+Complete UI localization — every visible string now responds to the selected language.
+Settings panel labels translate on open, all status bar messages use `tt()`, dynamic
+button labels (Activating…, Adding…) and download counts update on language switch.
+50+ new translation keys added across all 19 languages. See [`RELEASE.md`](./RELEASE.md)
+for full detail.
+
+## What's new in v0.5.61
+
+Context menu fully localized (all 22 items), 6 missing `tt()` keys added to all language
+files, verbose `window.tt ? window.tt()` guards cleaned up. See [`RELEASE.md`](./RELEASE.md).
+
+## What's new in v0.5.60
+
+Language switcher extended to `panels-transfer.js`, `panels-config.js`,
+`panels-media.js`, and `dialogs.js`. The `i18n:changed` event now re-renders all panels
+live. See [`RELEASE.md`](./RELEASE.md).
 
 ## What's new in v0.5.59
 
