@@ -5,6 +5,28 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.65 — dist/renderer fix + sidebar translation gap
+
+Two fixes:
+
+- **Fixed the actual cause of "language selector does nothing."** `dist/` was listed
+in `.gitignore`, so `i18n.js` and every file in `languages/` were never committed to
+git in the first place — GitHub Actions built releases with `index.html` pointing at
+a script that simply wasn't in the checkout, so the whole translation engine silently
+failed to load (visible in DevTools as `Uncaught SyntaxError: Unexpected token '<'`,
+because the request for `i18n.js` fell through to `index.html`). Removed `dist/` from
+`.gitignore` and committed the files that were missing.
+- **Translated the sidebar category tree.** The Categories panel (Downloads section —
+All Downloads/Compressed/Documents/Music/Programs/Video, Status section — Unfinished/
+Finished/Queues, plus the Drives and Labels section headers) was built dynamically in
+`app.js` with hardcoded English strings that were never wrapped in `tt()`, so it stayed
+in English even with a non-English language selected — everywhere else in the app was
+already fully localized. Added 11 new keys, translated across all 19 languages.
+
+> `package.json` and `Cargo.toml` bumped to `0.5.65`.
+
+---
+
 ## v0.5.64 — Auto-update dialog fixes
 
 Fixes the startup "New version of Speusis is available" prompt.

@@ -563,20 +563,20 @@ function countByFilter(filter) {
 /* ── Category panel ─────────────────────────────────────────────── */
 async function buildCatTree() {
   const cats = [
-    { key:"all",        label:"All Downloads" },
-    { key:"compressed", label:"Compressed" },
-    { key:"documents",  label:"Documents" },
-    { key:"music",      label:"Music" },
-    { key:"programs",   label:"Programs" },
-    { key:"video",      label:"Video" },
+    { key:"all",        label:tt("All Downloads") },
+    { key:"compressed", label:tt("Compressed") },
+    { key:"documents",  label:tt("Documents") },
+    { key:"music",      label:tt("Music") },
+    { key:"programs",   label:tt("Programs") },
+    { key:"video",      label:tt("Video") },
   ];
   const sub = [
-    { key:"unfinished", label:"Unfinished" },
-    { key:"finished",   label:"Finished" },
-    { key:"queued",     label:"Queues" },
+    { key:"unfinished", label:tt("Unfinished") },
+    { key:"finished",   label:tt("Finished") },
+    { key:"queued",     label:tt("Queues") },
   ];
 
-  let html = `<div class="cat-section-label">Downloads</div>`;
+  let html = `<div class="cat-section-label">${escHtml(tt("Downloads"))}</div>`;
   for (const c of cats) {
     const count = countByFilter(c.key);
     const active = c.key === activeFilter ? " active" : "";
@@ -587,7 +587,7 @@ async function buildCatTree() {
     </div>`;
   }
 
-  html += `<div class="cat-section-label" style="margin-top:6px">Status</div>`;
+  html += `<div class="cat-section-label" style="margin-top:6px">${escHtml(tt("Status"))}</div>`;
   for (const c of sub) {
     const count = countByFilter(c.key);
     const active = c.key === activeFilter ? " active" : "";
@@ -601,7 +601,7 @@ async function buildCatTree() {
   // Labels
   const labels = new Set([...taskStore.values()].map(t => t.label).filter(Boolean));
   if (labels.size > 0) {
-    html += `<div class="cat-section-label" style="margin-top:6px">Labels</div>`;
+    html += `<div class="cat-section-label" style="margin-top:6px">${escHtml(tt("Labels"))}</div>`;
     for (const lbl of labels) {
       const filter = "lbl:" + lbl;
       const count = countByFilter(filter);
@@ -617,7 +617,7 @@ async function buildCatTree() {
   try {
     if (!cachedDrives) cachedDrives = await api.listDrives();
     if (cachedDrives && cachedDrives.length > 0) {
-      html += `<div class="cat-section-label" style="margin-top:6px">Drives</div>`;
+      html += `<div class="cat-section-label" style="margin-top:6px">${escHtml(tt("Drives"))}</div>`;
       for (const d of cachedDrives) {
         html += `<div class="cat-drive">${CAT_SVGS.drive}<span>${escHtml(d)}</span></div>`;
       }
