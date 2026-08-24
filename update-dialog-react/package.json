@@ -1,0 +1,19 @@
+{
+  "name": "speusis-update-dialog",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Standalone React source for the auto-update dialog's separate native window. Builds to a single self-contained HTML file at dist/renderer/update-dialog/index.html, which src-tauri/src/commands.rs points the autoUpdateDialog native window at instead of index.html?panel=autoUpdateDialog. Uses the app's real window.__TAURI__ global (withGlobalTauri) and links the shared dist/renderer/styles.css at runtime, so it always matches the app's current theme/accent with zero duplicated CSS.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^5.4.21",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

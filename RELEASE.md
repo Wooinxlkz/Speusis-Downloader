@@ -5,6 +5,32 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.66 — Auto-update dialog rebuilt in React
+
+The startup "New version of Speusis is available" dialog is now built with React,
+in a new standalone `update-dialog-react/` project — the only part of the renderer
+that uses React/Vite; everything else stays plain HTML/JS with no bundler, as before.
+
+- Still opens as its own separate native OS window, same mechanism as Basket and
+every other dialog (`panel_open` in `commands.rs`) — `autoUpdateDialog` now points
+at a dedicated built page (`dist/renderer/update-dialog/index.html`) instead of the
+shared `index.html?panel=...` route. No other dialog was touched.
+- Matches the app's real theme/accent exactly by linking the actual shared
+`styles.css` at runtime rather than duplicating any styling, and re-applies live if
+the theme is changed while the window is open.
+- Same window dragging/resizing, same backend calls (`update_get_pending`,
+`download_add`, `update_open_download`) as before — behavior is unchanged, only the
+implementation is new.
+- Build source lives in `update-dialog-react/` (see its README); the committed
+`dist/renderer/update-dialog/index.html` is the actual built output that ships.
+- Re-fixed `.gitignore` excluding `dist/` — this snapshot predated the v0.5.65 fix,
+so it would have silently dropped this new dialog (and everything else in `dist/`)
+from the repo again.
+
+> `package.json` and `Cargo.toml` bumped to `0.5.66`.
+
+---
+
 ## v0.5.65 — dist/renderer fix + sidebar translation gap
 
 Two fixes:

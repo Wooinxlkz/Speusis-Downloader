@@ -596,12 +596,17 @@ pub async fn panel_open(app: AppHandle, panel: String, id: Option<String>) -> Re
         return Ok(());
     }
 
-    let url = match id {
-        Some(id) => format!(
-            "index.html?panel={panel}&id={}",
-            id.replace('%', "%25").replace('&', "%26").replace('=', "%3D").replace('?', "%3F")
-        ),
-        None => format!("index.html?panel={panel}"),
+    let url = match panel.as_str() {
+        // The only React-built panel - see update-dialog-react/README.md.
+        // Everything else is the shared vanilla index.html?panel=<id> page.
+        "autoUpdateDialog" => "update-dialog/index.html".to_string(),
+        _ => match id {
+            Some(id) => format!(
+                "index.html?panel={panel}&id={}",
+                id.replace('%', "%25").replace('&', "%26").replace('=', "%3D").replace('?', "%3F")
+            ),
+            None => format!("index.html?panel={panel}"),
+        },
     };
 
     tauri::WebviewWindowBuilder::new(
