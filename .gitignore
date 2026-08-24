@@ -1,6 +1,5 @@
 # Build output / dependencies
 node_modules/
-dist/
 target/
 src-tauri/target/
 browser-extension/dist/
