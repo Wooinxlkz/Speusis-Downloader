@@ -72,7 +72,7 @@ export function scanBadge(scan) {
   };
   const [cls, label] = labels[scan.status] || ["st-paused", scan.status];
   const title = scan.message ? ` title="${escHtml(scan.message)}"` : "";
-  return ` <span class="st-badge ${cls}"${title}>${label}</span>`;
+  return ` <span class="st-badge ${cls}"${title}>${window.tt ? window.tt(label) : label}</span>`;
 }
 
 export function statusBadge(task) {
@@ -89,7 +89,7 @@ export function statusBadge(task) {
   const title = status === "failed" && task?.lastError
     ? ` title="${escHtml(task.lastError)}"`
     : "";
-  return `<span class="st-badge ${cls}"${title}>${label}</span>${scanBadge(task?.securityScan)}`;
+  return `<span class="st-badge ${cls}"${title}>${window.tt ? window.tt(label) : label}</span>${scanBadge(task?.securityScan)}`;
 }
 
 /* ── Row SVG action buttons (shared by row actions + tracer panel) ── */

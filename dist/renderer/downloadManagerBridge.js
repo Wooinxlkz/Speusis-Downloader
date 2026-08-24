@@ -100,6 +100,7 @@ window.downloadManager = {
   checkForUpdate: () => invoke("update_check"),
   getPendingUpdate: () => invoke("update_get_pending"),
   openUpdateDownload: (url) => invoke("update_open_download", { url }),
+  openExtensionStore: (browser) => invoke("extension_open_store", { browser }),
   onUpdateAvailable: (handler) => {
     let unlisten;
     listen("update-available", (event) => handler(event.payload)).then((fn) => (unlisten = fn));

@@ -623,7 +623,7 @@ fn main() {
             // that flow is untouched, its own event name (`update-available`),
             // its own banner UI, never calls into this dialog.
             // Runs once ~4s after launch (so the window has time to render
-            // first), then keeps re-checking every few hours for as long as
+            // first), then keeps re-checking every 15 minutes for as long as
             // the app stays open - previously this only ever ran once at
             // startup, so a release published mid-session was never noticed
             // until the next relaunch.
@@ -636,7 +636,7 @@ fn main() {
                         tokio::time::sleep(std::time::Duration::from_secs(4)).await;
                         first_run = false;
                     } else {
-                        tokio::time::sleep(std::time::Duration::from_secs(3 * 60 * 60)).await;
+                        tokio::time::sleep(std::time::Duration::from_secs(15 * 60)).await;
                     }
                     let result = speusis_core::update_checker::check_for_update(
                         None,

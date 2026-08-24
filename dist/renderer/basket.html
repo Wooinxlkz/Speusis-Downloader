@@ -128,22 +128,22 @@
   <div id="dragHandle">
     <div class="title">
       <img src="./speusis-icon.png" alt="" onerror="this.style.display='none'"/>
-      <span>Speusis Basket</span>
+      <span data-i18n="speusis_basket">Speusis Basket</span>
     </div>
-    <button id="closeBtn" title="Close basket">&times;</button>
+    <button id="closeBtn" title="Close basket" data-i18n-title="close_basket">&times;</button>
   </div>
 
   <div id="content">
     <div id="dropZone">
       <img id="icon" src="./speusis-icon.png" alt="Speusis" onerror="this.style.display='none'"/>
-      <div id="label"><strong>Drop links here</strong>Drag a link from your browser,<br>or click to paste a URL</div>
+      <div id="label"><strong data-i18n="drop_links_here">Drop links here</strong>Drag a link from your browser,<br>or click to paste a URL</div>
       <div id="status"></div>
     </div>
     <div id="urlForm">
-      <input id="urlInput" type="text" placeholder="Paste URL…" autocomplete="off" spellcheck="false">
+      <input id="urlInput" type="text" placeholder="Paste URL…" autocomplete="off" spellcheck="false" data-i18n-placeholder="paste_url">
       <div id="urlActions">
-        <button id="urlCancel">Cancel</button>
-        <button id="urlAdd">Add</button>
+        <button id="urlCancel" data-i18n="cancel">Cancel</button>
+        <button id="urlAdd" data-i18n="add">Add</button>
       </div>
     </div>
     <div id="recent"></div>

@@ -212,7 +212,10 @@ function prepareDialogHeaders() {
     handle.classList.add("dialog-titlebar", "panel-drag-handle");
 
     const existingClose = handle.querySelector(":scope > .dialog-close");
-    const existingIcon = handle.querySelector(":scope > svg");
+    // Some dialogs (auto-update) already ship a hardcoded <img> logo in
+    // their markup - strip that too, not just <svg>, or we end up
+    // rendering it plus the one this function adds below (two logos).
+    const existingIcon = handle.querySelector(":scope > svg, :scope > img");
     if (existingIcon) existingIcon.remove();
 
     const icon = document.createElement("img");
@@ -453,20 +456,21 @@ function actionMenuMarkup(status, kind, taskName) {
 }
 
 function buildActionButtons(status, taskName, kind) {
+  const tt = s => (window.tt ? window.tt(s) : s);
   const b = [];
   const isMedia = VIDEO_EXT.test(taskName || "") || AUDIO_EXT.test(taskName || "");
   if (status === "running") {
-    b.push(`<button class="row-btn rb-pause" data-action="pause" title="Pause">${BTN_SVG.pause}</button>`);
-    b.push(`<button class="row-btn rb-stop"  data-action="stop"  title="Stop">${BTN_SVG.stop}</button>`);
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    b.push(`<button class="row-btn rb-pause" data-action="pause" title="${tt("Pause")}">${BTN_SVG.pause}</button>`);
+    b.push(`<button class="row-btn rb-stop"  data-action="stop"  title="${tt("Stop")}">${BTN_SVG.stop}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   } else if (status === "paused") {
-    b.push(`<button class="row-btn rb-play" data-action="resume" title="Resume">${BTN_SVG.play}</button>`);
-    b.push(`<button class="row-btn rb-stop" data-action="stop"   title="Stop">${BTN_SVG.stop}</button>`);
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    b.push(`<button class="row-btn rb-play" data-action="resume" title="${tt("Resume")}">${BTN_SVG.play}</button>`);
+    b.push(`<button class="row-btn rb-stop" data-action="stop"   title="${tt("Stop")}">${BTN_SVG.stop}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   } else if (status === "queued") {
-    b.push(`<button class="row-btn rb-stop" data-action="stop" title="Cancel">${BTN_SVG.stop}</button>`);
+    b.push(`<button class="row-btn rb-stop" data-action="stop" title="${tt("Cancel")}">${BTN_SVG.stop}</button>`);
   } else if (status === "completed") {
-    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="Preview">${BTN_SVG.preview}</button>`);
+    if (isMedia) b.push(`<button class="row-btn rb-preview" data-action="preview" title="${tt("Preview")}">${BTN_SVG.preview}</button>`);
   }
   // Delete and Re-download used to be their own standalone icons alongside
   // the 3-dot menu (3 icons total for a completed row). Folded into the
@@ -476,7 +480,7 @@ function buildActionButtons(status, taskName, kind) {
 
   return `${b.join("")}
     <span class="row-action-menu">
-      <button class="row-more" type="button" title="More actions" aria-label="More actions" aria-expanded="false">
+      <button class="row-more" type="button" title="${tt("More actions")}" aria-label="${tt("More actions")}" aria-expanded="false">
         <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
           <circle cx="4" cy="10" r="1.5" fill="currentColor"/>
           <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
@@ -1049,9 +1053,9 @@ function updateStats() {
 }
 
 function setStatus(msg) {
-  statusMsg.textContent = msg;
+  statusMsg.textContent = window.tt ? window.tt(msg) : msg;
   clearTimeout(setStatus._t);
-  setStatus._t = setTimeout(() => { statusMsg.textContent = "Ready"; }, 4000);
+  setStatus._t = setTimeout(() => { statusMsg.textContent = window.tt ? window.tt("Ready") : "Ready"; }, 4000);
 }
 
 /* ── Speed Graph ────────────────────────────────────────────────── */
@@ -1113,7 +1117,7 @@ api.onEvent((event, payload) => {
   if (event === "DownloadStarted") {
     const existing = taskStore.get(payload.id) || { id: payload.id, createdAt: Date.now() };
     upsertRow({ ...existing, ...payload, status: "running" });
-    setStatus("Started: " + (payload.url || "").split("/").pop());
+    setStatus(window.tt("Started:") + " " + (payload.url || "").split("/").pop());
     scheduleCatTreeRender();
   }
   if (event === "DownloadProgress") {
@@ -1129,14 +1133,14 @@ api.onEvent((event, payload) => {
     taskStore.set(payload.id, { ...task, ...payload, status: "completed" });
     speedMap.set(payload.id, 0);
     upsertRow(taskStore.get(payload.id));
-    setStatus("Completed: " + displayName(task));
+    setStatus(window.tt("Completed:") + " " + displayName(task));
     scheduleCatTreeRender();
   }
   if (event === "SecurityScanStarted") {
     const task = taskStore.get(payload.id) || {};
     taskStore.set(payload.id, { ...task, securityScan: { status: "pending", scanner: payload.scanner, message: "Scanning downloaded file..." } });
     upsertRow(taskStore.get(payload.id));
-    setStatus("Security scan started: " + displayName(taskStore.get(payload.id)));
+    setStatus(window.tt("Security scan started:") + " " + displayName(taskStore.get(payload.id)));
   }
   if (event === "SecurityScanCompleted") {
     const task = taskStore.get(payload.id) || {};
@@ -1158,7 +1162,7 @@ api.onEvent((event, payload) => {
     taskStore.set(payload.id, { ...task, status: "failed", lastError: payload.reason || null });
     speedMap.set(payload.id, 0);
     upsertRow(taskStore.get(payload.id));
-    setStatus("Failed: " + (payload.reason || "unknown error"));
+    setStatus(window.tt("Failed:") + " " + (payload.reason || window.tt("unknown error")));
     scheduleCatTreeRender();
   }
   if (event === "DownloadPaused") {
@@ -1220,7 +1224,7 @@ document.getElementById("btnLaterDownload").addEventListener("click", async () =
   if (task?.id) {
     taskStore.set(task.id, { ...task, createdAt: Date.now() }); upsertRow(taskStore.get(task.id));
     taskStore.set(task.id, { ...taskStore.get(task.id), status: "queued" }); upsertRow(taskStore.get(task.id));
-    setStatus("Queued: " + displayName(task)); updateStats(); scheduleCatTreeRender();
+    setStatus(window.tt("Queued:") + " " + displayName(task)); updateStats(); scheduleCatTreeRender();
   }
 });
 
@@ -1233,7 +1237,7 @@ dlForm.addEventListener("submit", async e => {
   const task = await api.addDownload({ url, filename: filenameInput.value.trim() || undefined, label });
   if (task?.id) {
     taskStore.set(task.id, { ...task, createdAt: Date.now() }); upsertRow(taskStore.get(task.id));
-    setStatus("Added: " + displayName(task)); updateStats();
+    setStatus(window.tt("Added:") + " " + displayName(task)); updateStats();
   }
 });
 
@@ -1292,7 +1296,7 @@ document.getElementById("btnHelp")?.addEventListener("click", () => {
   const helpLicenseEl = document.getElementById("helpLicenseType");
   if (helpLicenseEl) {
     const stored = getStoredLicense?.();
-    helpLicenseEl.textContent = stored?.plan ? (stored.plan.charAt(0).toUpperCase() + stored.plan.slice(1)) : "Unregistered";
+    helpLicenseEl.textContent = stored?.plan ? (stored.plan.charAt(0).toUpperCase() + stored.plan.slice(1)) : (window.tt ? window.tt("Unregistered") : "Unregistered");
   }
   openPanel(helpPanel);
 });
@@ -1373,7 +1377,7 @@ function openMenuDropdown(button) {
   menuDropdown.innerHTML = menu.map(([label, action, shortcut]) => {
     if (action === "separator") return `<div class="md-sep" role="separator"></div>`;
     return `<button class="md-item" role="menuitem" data-menu-action="${action}">
-      <span>${escHtml(label)}</span>${shortcut ? `<span class="md-shortcut">${escHtml(shortcut)}</span>` : ""}
+      <span>${escHtml(window.tt ? window.tt(label) : label)}</span>${shortcut ? `<span class="md-shortcut">${escHtml(shortcut)}</span>` : ""}
     </button>`;
   }).join("");
   button.classList.add("open");
@@ -1444,6 +1448,8 @@ async function openSettings() {
 }
 document.getElementById("btnCloseSettings").addEventListener("click", () => closePanel(settingsPanel));
 document.getElementById("btnCloseAbout").addEventListener("click", () => closePanel(aboutPanel));
+document.getElementById("btnGetExtensionChromium")?.addEventListener("click", () => api.openExtensionStore("chromium"));
+document.getElementById("btnGetExtensionFirefox")?.addEventListener("click", () => api.openExtensionStore("firefox"));
 
 function selectSettingsTab(tabName) {
   document.querySelectorAll(".settings-tab").forEach(tab => {
@@ -1464,7 +1470,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
   const statusEl = document.getElementById("updateCheckStatus");
   if (!statusEl) return;
   statusEl.style.color = "var(--muted)";
-  statusEl.textContent = "Checking for updates…";
+  statusEl.textContent = (window.tt ? window.tt("Checking for updates…") : "Checking for updates…");
   try {
     const result = await api.checkForUpdate();
     const info  = result?.info  ?? null;
@@ -1478,7 +1484,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
       // isolated copy of the DOM, which the user never sees.
     } else if (error) {
       statusEl.style.color = "#f87171";
-      statusEl.textContent = "Could not reach update server.";
+      statusEl.textContent = (window.tt ? window.tt("Could not reach update server.") : "Could not reach update server.");
       console.warn("[Speusis] Update check failed:", error);
     } else {
       statusEl.style.color = "#86efac";
@@ -1486,7 +1492,7 @@ document.getElementById("btnCheckUpdate")?.addEventListener("click", async () =>
     }
   } catch {
     statusEl.style.color = "#f87171";
-    statusEl.textContent = "Could not reach update server.";
+    statusEl.textContent = (window.tt ? window.tt("Could not reach update server.") : "Could not reach update server.");
   }
   setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 6000);
 });
@@ -1743,6 +1749,43 @@ function applyTheme(mode) {
 
 themeMode?.addEventListener("change",   () => api.updateSettings({ themeMode: themeMode.value,   accentColor: accentColor?.value || "blue" }).then(applyAppearance));
 accentColor?.addEventListener("change", () => api.updateSettings({ themeMode: themeMode?.value || "dark", accentColor: accentColor.value }).then(applyAppearance));
+
+/* ── Language / i18n ───────────────────────────────────────────────
+ * Wires the Settings > General language dropdown to the i18n engine
+ * (i18n.js). The choice is persisted by the engine (localStorage) and
+ * applied live — including right-to-left flip for Arabic/Hebrew/Persian.
+ * English is the hard-coded default already on screen, so we only
+ * re-render when a non-English language is stored, keeping English users'
+ * UI byte-for-byte unchanged. */
+const languageSelect = document.getElementById("languagePlaceholder");
+if (languageSelect && window.i18n) {
+  const savedLang = window.i18n.storedLanguage();
+  languageSelect.value = savedLang;
+  languageSelect.addEventListener("change", () => {
+    window.i18n.setLanguage(languageSelect.value).then(() => {
+      const label = languageSelect.selectedOptions[0]?.textContent || languageSelect.value;
+      setStatus(`${window.tt ? window.tt("Language") : "Language"}: ${label}`);
+    });
+  });
+  window.i18n.ready.then(() => {
+    if (savedLang !== window.i18n.DEFAULT_LANG) window.i18n.setLanguage(savedLang);
+  });
+}
+
+/* ── Re-render dynamic UI on language change ────────────────────────
+ * i18n.js dispatches "i18n:changed" after setLanguage() has already run
+ * applyTranslations() over every static [data-i18n] element. The
+ * dynamic, JS-built surfaces (download rows, header stats, category
+ * tree, registration badge) were rendered once at load and carry no
+ * data-i18n, so their window.tt()-wrapped strings stay in the old
+ * language until they're rebuilt — which is exactly why the switcher
+ * "did nothing" for the list. Rebuild them here. renderAll() also
+ * refreshes stats + the category tree. Segment-map and tracer panels
+ * self-heal on their own 1.5s poll, so they aren't touched here. */
+document.addEventListener("i18n:changed", () => {
+  try { renderAll(); } catch (e) { console.warn("[i18n] renderAll after language change failed:", e); }
+  try { updateRegBadge(); } catch (e) {}
+});
 scanCompletedFiles?.addEventListener("change", () => api.updateSettings({ scanCompletedFiles: scanCompletedFiles.checked }).then(refreshSettings));
 
 document.getElementById("autoStartWithSystem")?.addEventListener("change", async e => {
@@ -2026,7 +2069,7 @@ function initUpdateBanner() {
     if (ubQuickPatch) ubQuickPatch.style.display = info.asarUrl ? "" : "none";
     if (ubDownload) {
       ubDownload.disabled = false;
-      ubDownload.textContent = info.downloadSize ? `Download Update (${fmt(info.downloadSize)})` : "Download Update";
+      ubDownload.textContent = info.downloadSize ? `Download Update (${fmt(info.downloadSize)})` : (window.tt ? window.tt("Download Update") : "Download Update");
     }
     banner.classList.add("visible");
   }
@@ -2041,7 +2084,7 @@ function initUpdateBanner() {
   if (api.onPatchProgress) {
     api.onPatchProgress((pct) => {
       if (ubQuickPatch) {
-        ubQuickPatch.textContent = pct < 100 ? `Downloading… ${pct}%` : "Applying patch…";
+        ubQuickPatch.textContent = pct < 100 ? `Downloading… ${pct}%` : (window.tt ? window.tt("Applying patch…") : "Applying patch…");
       }
     });
   }
@@ -2081,38 +2124,38 @@ function initUpdateBanner() {
       const asarUrl = banner.dataset.asarUrl;
       if (!asarUrl) return;
       ubQuickPatch.disabled = true;
-      ubQuickPatch.textContent = "Starting download…";
+      ubQuickPatch.textContent = (window.tt ? window.tt("Starting download…") : "Starting download…");
       if (ubDownload) ubDownload.disabled = true;
 
       try {
         const dlResult = await api.downloadPatch(asarUrl);
         if (!dlResult?.success) {
           ubQuickPatch.disabled = false;
-          ubQuickPatch.textContent = "Quick Patch (~3MB)";
+          ubQuickPatch.textContent = (window.tt ? window.tt("Quick Patch (~3MB)") : "Quick Patch (~3MB)");
           if (ubDownload) ubDownload.disabled = false;
-          setStatus("Patch download failed: " + (dlResult?.error || "unknown error"));
+          setStatus(window.tt("Patch download failed:") + " " + (dlResult?.error || window.tt("unknown error")));
           return;
         }
 
-        ubQuickPatch.textContent = "Applying patch…";
+        ubQuickPatch.textContent = (window.tt ? window.tt("Applying patch…") : "Applying patch…");
         const applyResult = await api.applyPatch();
         if (!applyResult?.success) {
           ubQuickPatch.disabled = false;
-          ubQuickPatch.textContent = "Quick Patch (~3MB)";
+          ubQuickPatch.textContent = (window.tt ? window.tt("Quick Patch (~3MB)") : "Quick Patch (~3MB)");
           if (ubDownload) ubDownload.disabled = false;
-          setStatus("Could not apply patch: " + (applyResult?.error || "unknown error"));
+          setStatus(window.tt("Could not apply patch:") + " " + (applyResult?.error || window.tt("unknown error")));
           return;
         }
 
         hideBanner();
         setStatus(applyResult.method === "elevated"
-          ? "Approve the admin prompt to apply the patch — Speusis will restart automatically."
-          : "Patch applied! Restarting Speusis…");
+          ? (window.tt ? window.tt("Approve the admin prompt to apply the patch — Speusis will restart automatically.") : "Approve the admin prompt to apply the patch — Speusis will restart automatically.")
+          : (window.tt ? window.tt("Patch applied! Restarting Speusis…") : "Patch applied! Restarting Speusis…"));
       } catch (err) {
         ubQuickPatch.disabled = false;
-        ubQuickPatch.textContent = "Quick Patch (~3MB)";
+        ubQuickPatch.textContent = (window.tt ? window.tt("Quick Patch (~3MB)") : "Quick Patch (~3MB)");
         if (ubDownload) ubDownload.disabled = false;
-        setStatus("Patch error: " + String(err));
+        setStatus(window.tt("Patch error:") + " " + String(err));
       }
     });
   }
@@ -2121,11 +2164,20 @@ function initUpdateBanner() {
 }
 
 /* ── Automatic startup update prompt (IDM-style) ─────────────────── */
+// This dialog is meant to appear as its own separate OS window (like
+// Options, RSS, About, etc.) - not clamped inside the main app window.
+// The native-window plumbing for it already exists (panel_open /
+// native_panel_config on the Rust side), it just wasn't being used here;
+// this used to fall through to the inline in-app overlay via
+// openAutoUpdateDialog() instead. api.openPanel spawns/focuses the real
+// window, which loads index.html?panel=autoUpdateDialog and populates
+// itself from api.getPendingUpdate() (see initializeNativePanel above).
 function initAutoUpdatePrompt() {
   if (!autoUpdateDialog || !api.onStartupUpdateAvailable) return;
 
-  api.onStartupUpdateAvailable(info => {
-    openAutoUpdateDialog(info);
+  api.onStartupUpdateAvailable(() => {
+    if (isNativePanelWindow) return; // never re-spawn from inside a panel window
+    api.openPanel("autoUpdateDialog").catch(() => openAutoUpdateDialog());
   });
 }
 
@@ -2214,7 +2266,7 @@ function initClipboardMonitor() {
     if (result?.id) {
       taskStore.set(result.id, { ...result, createdAt: Date.now() });
       upsertRow(taskStore.get(result.id));
-      setStatus("Added from clipboard: " + (result.filename || url.split("/").pop()?.split("?")[0] || url));
+      setStatus(window.tt("Added from clipboard:") + " " + (result.filename || url.split("/").pop()?.split("?")[0] || url));
       scheduleCatTreeRender();
     } else {
       setStatus("Could not add clipboard URL");
