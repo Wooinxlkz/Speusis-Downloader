@@ -98,7 +98,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); openPanel(addUrlPanel); urlInput.focus();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === "m") {
-    e.preventDefault(); if (selectedId && !isPanelOpen()) openRenameDialog(selectedId);
+    e.preventDefault(); if (selectedId && !isPanelOpen()) try { openRenameDialog(selectedId); } catch(_e) { console.warn(_e); }
   }
   if (e.key === "Escape") { closeMenuDropdown(); closeAllPanels(); }
   if (e.key === "Delete" && selectedId && !isPanelOpen()) {
@@ -119,8 +119,8 @@ function resetDialogPosition(panel) {
 }
 
 function stopPanelActivity(panel) {
-  if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll();
-  if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll();
+  try { if (panel === segmentMapDialog && typeof stopSegMapPoll === "function") stopSegMapPoll(); } catch(e) {}
+  try { if (panel === tracerPanel && typeof stopTracerPoll === "function") stopTracerPoll(); } catch(e) {}
   // Pauses any <video>/<audio> left playing inside a panel that's being
   // closed/hidden (e.g. clicking outside it, Escape, or switching to a
   // different panel) — covers mediaPlayerPanel without a hardcoded
@@ -839,7 +839,7 @@ async function handleRowAction(id, action) {
       break;
     }
     case "delete": {
-      await showDeleteConfirm(id);
+      try { await showDeleteConfirm(id); } catch(_e) { console.warn(_e); }
       break;
     }
     case "copyurl": {
@@ -910,7 +910,7 @@ async function handleRowAction(id, action) {
       break;
     }
     case "rename": {
-      openRenameDialog(id); break;
+      try { openRenameDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "refreshurl": {
       setStatus(tt("Refresh download address — re-queuing…"));
@@ -933,16 +933,16 @@ async function handleRowAction(id, action) {
       setStatus(tt("Double-click action not changed.")); break;
     }
     case "properties": {
-      openPropertiesDialog(id); break;
+      try { openPropertiesDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "segmentmap": {
-      openSegmentMapDialog(id); break;
+      try { openSegmentMapDialog(id); } catch(_e) { console.warn(_e); } break;
     }
     case "tracer": {
-      openTracerPanel(); break;
+      try { openTracerPanel(); } catch(_e) { console.warn(_e); } break;
     }
     case "torrent-files": {
-      openTorrentFilesPanel(id); break;
+      try { openTorrentFilesPanel(id); } catch(_e) { console.warn(_e); } break;
     }
   }
   updateStats(); scheduleCatTreeRender();
@@ -1204,10 +1204,10 @@ document.getElementById("btnOpenTorrent").addEventListener("click", async () => 
   updateStats(); scheduleCatTreeRender();
 });
 
-document.getElementById("btnBatchDownload").addEventListener("click", () => openBatchPanel());
-document.getElementById("btnScheduler").addEventListener("click",     () => openSchedulerPanel());
-document.getElementById("btnLogins").addEventListener("click",         () => openLoginsPanel());
-document.getElementById("btnRss").addEventListener("click",            () => openRssPanel());
+document.getElementById("btnBatchDownload").addEventListener("click", () => { try { openBatchPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnScheduler").addEventListener("click",     () => { try { openSchedulerPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnLogins").addEventListener("click",         () => { try { openLoginsPanel(); } catch(e) { console.warn(e); } });
+document.getElementById("btnRss").addEventListener("click",            () => { try { openRssPanel(); } catch(e) { console.warn(e); } });
 document.getElementById("btnCreateTorrent").addEventListener("click",  () => openPanel(createTorrentPanel));
 
 document.getElementById("btnCancelAdd").addEventListener("click", () => { closePanel(addUrlPanel); dlForm.reset(); });
@@ -1408,7 +1408,7 @@ document.addEventListener("click", closeMenuDropdown);
 const nativeMenuActions = {
   "add-url": () => { openPanel(addUrlPanel); urlInput.focus(); },
   "open-torrent": () => document.getElementById("btnOpenTorrent")?.click(),
-  "batch-download": () => openBatchPanel(),
+  "batch-download": () => { try { openBatchPanel(); } catch(e) { console.warn(e); } },
   "resume-all": () => resumeAllPaused(),
   "pause-selected": () => document.getElementById("btnPauseSelected")?.click(),
   "stop-selected": () => document.getElementById("btnStopSelected")?.click(),
@@ -1416,13 +1416,13 @@ const nativeMenuActions = {
   "delete-selected": () => document.getElementById("btnDelete")?.click(),
   "delete-completed": () => deleteByStatus(["completed","cancelled"]),
   "choose-dir": () => chooseDir(),
-  "logins": () => openLoginsPanel(),
+  "logins": () => { try { openLoginsPanel(); } catch(e) { console.warn(e); } },
   "start-queue": () => resumeAllPaused(),
   "stop-queue": () => stopAllQueued(),
-  "scheduler": () => openSchedulerPanel(),
-  "rss": () => openRssPanel(),
+  "scheduler": () => { try { openSchedulerPanel(); } catch(e) { console.warn(e); } },
+  "rss": () => { try { openRssPanel(); } catch(e) { console.warn(e); } },
   "create-torrent": () => openPanel(createTorrentPanel),
-  "web-grabber": () => openGrabberPanel(),
+  "web-grabber": () => { try { openGrabberPanel(); } catch(e) { console.warn(e); } },
   "basket": () => api.openBasket?.(),
   "toggle-toolbar": () => toggleToolbar(),
   "toggle-categories": () => toggleCatPanel(),
@@ -1719,13 +1719,14 @@ async function refreshSettings() {
   if (seedRatioEl)       seedRatioEl.value       = s.seedRatio ?? 1.0;
   if (tempDirEl)         tempDirEl.value         = s.tempDir ?? "";
 
-  const fields = { [tt("Download Directory")]: s.downloadDir };
+  const _tt = window.tt || (s => s);
+  const fields = { [_tt("Download Directory")]: s.downloadDir };
   settingsDet.innerHTML = Object.entries(fields)
     .map(([k,v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v??"-"))}</strong></div>`)
     .join("");
   const advancedDetails = document.querySelector(".settings-details-advanced");
   if (advancedDetails) {
-    advancedDetails.innerHTML = [[tt("Engine"), "Speusis multi-segment core"]]
+    advancedDetails.innerHTML = [[_tt("Engine"), "Speusis multi-segment core"]]
       .map(([k, v]) => `<div class="sd-row"><span>${escHtml(k)}</span><strong>${escHtml(String(v ?? "-"))}</strong></div>`).join("");
   }
   return s;
@@ -1827,7 +1828,7 @@ document.getElementById("btnViewSegmentMap")?.addEventListener("click", () => {
   // it must always be called so the card actually appears, instead of
   // this handler swallowing the no-selection case before the dialog ever
   // gets a chance to open.
-  openSegmentMapDialog(selectedId);
+  try { openSegmentMapDialog(selectedId); } catch(_e) { console.warn(_e); }
 });
 downloadLimitKbEl?.addEventListener("change", async e => {
   const kb = Math.max(0, parseInt(e.target.value) || 0);
@@ -1910,22 +1911,22 @@ async function initializeNativePanel() {
       openGrabberPanel();
       break;
     case "torrentFilesPanel":
-      await openTorrentFilesPanel(nativePanelTaskId);
+      try { await openTorrentFilesPanel(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "renameDialog":
-      openRenameDialog(nativePanelTaskId);
+      try { openRenameDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "propertiesDialog":
-      openPropertiesDialog(nativePanelTaskId);
+      try { openPropertiesDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "segmentMapDialog":
-      openSegmentMapDialog(nativePanelTaskId);
+      try { openSegmentMapDialog(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "tracerPanel":
-      openTracerPanel();
+      try { openTracerPanel(); } catch(_e) { console.warn(_e); }
       break;
     case "deleteConfirmDialog":
-      showDeleteConfirm(nativePanelTaskId);
+      try { showDeleteConfirm(nativePanelTaskId); } catch(_e) { console.warn(_e); }
       break;
     case "registrationPanel":
       openRegistrationPanel();

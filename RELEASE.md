@@ -5,6 +5,36 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.63 — Critical crash fixes (TDZ + tt undefined)
+
+Hotfix for regressions introduced in v0.5.62. The language localization work exposed
+several pre-existing bugs that only surfaced once the UI was exercised earlier in the
+load cycle.
+
+### tt is not defined in refreshSettings()
+
+`refreshSettings()` called `tt()` (the i18n lookup function) before `window.tt` was set
+by `i18n.js`. Fixed with a local `_tt = window.tt || (s => s)` fallback so the settings
+panel always renders safely regardless of load order.
+
+### Cannot access X before initialization (Temporal Dead Zone)
+
+14 references to panel functions (`openRenameDialog`, `openPropertiesDialog`,
+`openSegmentMapDialog`, `openTracerPanel`, `openTorrentFilesPanel`, `showDeleteConfirm`,
+and others) were called before their `const` declarations at lines 1881–1890. This caused
+a JavaScript Temporal Dead Zone crash that broke every toolbar button and right-click
+action. All early references are now wrapped in `try/catch` guards.
+
+The `stopSegMapPoll` / `stopTracerPoll` calls in `stopPanelActivity()` (line 122) were
+similarly guarded. The `openBatchPanel`, `openLoginsPanel`, `openSchedulerPanel`,
+`openRssPanel`, and `openGrabberPanel` event listeners and keyboard shortcut handlers
+were also already guarded in v0.5.62 — this release extends the same pattern to all
+remaining unguarded call sites.
+
+> package.json and Cargo.toml bumped to 0.5.63. Renderer-only release, no Rust rebuild required.
+
+---
+
 ## v0.5.62 — Complete UI localization across all languages
 
 Finishes the language switcher feature end-to-end. Every visible string in the app now

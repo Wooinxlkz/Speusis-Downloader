@@ -1,6 +1,6 @@
 {
   "name": "speusis-tauri",
-  "version": "0.5.62",
+  "version": "0.5.63",
   "private": true,
   "scripts": {
     "tauri": "tauri",
@@ -11,6 +11,7 @@
     "@tauri-apps/api": "^2.0.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "@tauri-apps/cli": "^2.0.0",
+    "acorn": "^8.18.0"
   }
 }

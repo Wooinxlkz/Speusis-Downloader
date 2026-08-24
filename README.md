@@ -5,7 +5,7 @@
 `v0.5.62` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.62-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.63-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.63](#whats-new-in-v0563)
 - [What's new in v0.5.62](#whats-new-in-v0562)
 - [What's new in v0.5.61](#whats-new-in-v0561)
 - [What's new in v0.5.60](#whats-new-in-v0560)
@@ -42,6 +43,12 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.63
+
+Hotfix: resolved critical crashes from v0.5.62 — `tt is not defined` in settings panel
+and 14 Temporal Dead Zone errors that broke toolbar buttons and right-click actions.
+See [`RELEASE.md`](./RELEASE.md) for full detail.
 
 ## What's new in v0.5.62
 
