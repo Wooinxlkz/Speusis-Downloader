@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest released version of Speusis Downloader (currently `v0.5.51`) receives
+Only the latest released version of Speusis Downloader (currently `v0.5.68`) receives
 security fixes. There is no long-term-support branch at this stage of the project.
 
 ## Reporting a vulnerability

@@ -111,10 +111,23 @@ export default function App() {
     currentWindow.startDragging?.().catch(() => {});
   }
 
+  // Fallback so the whole window drags, not just the thin title strip -
+  // this dialog is small and has no obvious "grab here" affordance
+  // outside the header, so clicking the surrounding background (rather
+  // than precisely the title row) should still move the window instead
+  // of doing nothing. Guarded to the empty background area and the
+  // notes text specifically, so it never intercepts clicks meant for
+  // the buttons or the title bar's own close button.
+  function onBackgroundPointerDown(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest("button, .dialog-titlebar")) return;
+    currentWindow.startDragging?.().catch(() => {});
+  }
+
   if (!ready) return null;
 
   return (
-    <div className="overlay-panel">
+    <div className="overlay-panel" style={{ alignItems: "center" }} onPointerDown={onBackgroundPointerDown}>
       <div className="panel-box auto-update-box">
         <div
           ref={dragRef}

@@ -71,6 +71,7 @@ const accentColor     = document.getElementById("accentColor");
 const scanCompletedFiles = document.getElementById("scanCompletedFiles");
 const typeSpoofCheck  = document.getElementById("typeSpoofCheck");
 const extensionRiskCheck = document.getElementById("extensionRiskCheck");
+const debugLogLevel   = document.getElementById("debugLogLevel");
 const settingsDet     = document.getElementById("settingsDetails");
 const maxConcurrentEl  = document.getElementById("maxConcurrentDownloads");
 const defaultSegmentsEl = document.getElementById("defaultSegments");
@@ -1754,6 +1755,7 @@ function applyAppearance(s) {
   if (scanCompletedFiles) scanCompletedFiles.checked = s.scanCompletedFiles !== false;
   if (typeSpoofCheck) typeSpoofCheck.checked = s.typeSpoofCheckEnabled !== false;
   if (extensionRiskCheck) extensionRiskCheck.checked = s.extensionRiskCheckEnabled !== false;
+  if (debugLogLevel) debugLogLevel.value = s.debugLogLevel || "info";
 }
 function applyTheme(mode) {
   document.body.dataset.theme = mode;
@@ -1802,6 +1804,7 @@ document.addEventListener("i18n:changed", () => {
 scanCompletedFiles?.addEventListener("change", () => api.updateSettings({ scanCompletedFiles: scanCompletedFiles.checked }).then(refreshSettings));
 typeSpoofCheck?.addEventListener("change", () => api.updateSettings({ typeSpoofCheckEnabled: typeSpoofCheck.checked }).then(refreshSettings));
 extensionRiskCheck?.addEventListener("change", () => api.updateSettings({ extensionRiskCheckEnabled: extensionRiskCheck.checked }).then(refreshSettings));
+debugLogLevel?.addEventListener("change", () => api.updateSettings({ debugLogLevel: debugLogLevel.value }).then(refreshSettings));
 
 document.getElementById("autoStartWithSystem")?.addEventListener("change", async e => {
   await api.setAutoStart?.(e.target.checked);

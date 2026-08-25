@@ -578,7 +578,11 @@ fn native_panel_config(panel: &str) -> Option<(&'static str, f64, f64)> {
         "deleteConfirmDialog" => ("Confirm Deletion", 520.0, 360.0),
         "segmentMapDialog" => ("Segment Map", 340.0, 300.0),
         "tracerPanel" => ("Download Trace", 380.0, 560.0),
-        "autoUpdateDialog" => ("Speusis Update", 480.0, 340.0),
+        // 230, not 340 - this dialog's actual content (title bar + two
+        // lines of text + buttons) is only ~190px tall; the previous
+        // 340 left a large dead empty area below the card since it
+        // stays pinned to the top rather than stretching to fill.
+        "autoUpdateDialog" => ("Speusis Update", 480.0, 230.0),
         "updateWarnDialog" => ("Speusis", 440.0, 260.0),
         _ => return None,
     })
@@ -704,6 +708,10 @@ pub async fn settings_update(app: AppHandle, state: State<'_, AppState>, patch: 
     if let Ok(mut snap) = state.settings_snapshot.write() {
         *snap = updated.clone();
     }
+    // Picks up a debug_log_level change immediately, same as every other
+    // toggle here - no restart needed to go from "info" to "debug"/"trace"
+    // (or back) while troubleshooting.
+    speusis_core::debug_log::set_level_from_str(&updated.debug_log_level);
     // Theme/accent changed here only ever applied to whichever window's own
     // document.body triggered it - if that was a native panel window (e.g.
     // Options), the main window (and every other open dialog) never saw the

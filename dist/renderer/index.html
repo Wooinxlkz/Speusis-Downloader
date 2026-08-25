@@ -333,6 +333,18 @@
               <strong data-i18n="safer_downloads_fewer_surprises">Safer downloads, fewer surprises</strong>
               <span data-i18n="speusis_hands_completed_files_to_windows_defende">Speusis hands completed files to Windows Defender and reports the result beside the download.</span>
             </div>
+            <div class="settings-section-heading" style="margin-top:18px" data-i18n="diagnostics">Diagnostics</div>
+            <div class="pf-row">
+              <label data-i18n="debug_log_level">Debug log level</label>
+              <select id="debugLogLevel">
+                <option value="error" data-i18n="level_error">Error only</option>
+                <option value="warn" data-i18n="level_warn">Warnings</option>
+                <option value="info" data-i18n="level_info">Info (default)</option>
+                <option value="debug" data-i18n="level_debug">Debug</option>
+                <option value="trace" data-i18n="level_trace">Trace (very verbose)</option>
+              </select>
+            </div>
+            <div class="settings-note" data-i18n="debug_log_note">Written locally to debug.log next to your other app data, capped at 5&nbsp;MB with one rotated backup. Only raise this above Info when troubleshooting - it never leaves your device.</div>
           </section>
           <section class="settings-tab-panel" data-settings-panel="advanced" role="tabpanel">
             <div class="settings-section-heading" data-i18n="torrent_seeding">Torrent seeding</div>

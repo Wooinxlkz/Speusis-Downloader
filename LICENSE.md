@@ -188,10 +188,9 @@ all copies in your possession. Sections 3, 6, 7, 8, 9, and 11 survive terminatio
 
 ## 11. Governing law and disputes
 
-This Agreement is governed by the laws of **[ jurisdiction — e.g. "the People's
-Democratic Republic of Algeria" or wherever you want to anchor this ]**, without regard to
-its conflict-of-law principles. Any dispute arising under this Agreement will be subject
-to the exclusive jurisdiction of the courts located in **[ city/country ]**, and you
+This Agreement is governed by the laws of **the People's Democratic Republic of Algeria**,
+without regard to its conflict-of-law principles. Any dispute arising under this Agreement
+will be subject to the exclusive jurisdiction of the courts located in **Algeria**, and you
 consent to personal jurisdiction there. Nothing in this section limits either party's
 right to seek injunctive relief in any court of competent jurisdiction to protect
 intellectual-property rights.
@@ -227,7 +226,7 @@ history.
 
 For licensing questions, permission requests, or to report a suspected breach of this
 Agreement, contact Licensor via the repository at
-<https://github.com/Wooinxlkz/Speusis-Downloader> or **[ email address ]**.
+<https://github.com/Wooinxlkz/Speusis-Downloader> or **Karimsc01t@gmail.com**.
 
 ---
 

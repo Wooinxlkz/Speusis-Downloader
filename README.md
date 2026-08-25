@@ -2,10 +2,10 @@
 
 **A native desktop download manager — Tauri v2 / Rust, HTTP, FTP, and BitTorrent in one app, with a matching browser extension.**
 
-`v0.5.62` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
+`v0.5.68` · Windows-first (NSIS/MSI installer) · Rust core + Tauri shell + JS renderer
 
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](./LICENSE.md)
-[![Version](https://img.shields.io/badge/version-0.5.63-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-0.5.68-blue.svg)](#)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 
 > **This is proprietary, source-available software.** The code lives in a public GitHub
@@ -17,6 +17,7 @@
 
 ## Table of contents
 
+- [What's new in v0.5.68](#whats-new-in-v0568)
 - [What's new in v0.5.63](#whats-new-in-v0563)
 - [What's new in v0.5.62](#whats-new-in-v0562)
 - [What's new in v0.5.61](#whats-new-in-v0561)
@@ -43,6 +44,24 @@
 - [Support](#support)
 
 ---
+
+## What's new in v0.5.68
+
+**Debug logging is now leveled, rotating, and off by default.** The internal
+`debug_log` module (separate from the crash-only panic log) used to write every one
+of its 50+ call sites unconditionally to an ever-growing `debug.log`. It's now:
+
+- **Leveled** — Error / Warn / Info / Debug / Trace, controlled by a new
+  `debug_log_level` setting (default `info`, so the app stays quiet by default).
+- **Adjustable live** — Settings → Security → Diagnostics has a "Debug log level"
+  dropdown; changing it applies immediately, no restart.
+- **Rotated** — `debug.log` is capped at 5&nbsp;MB, rolling into a single
+  `debug.log.1` backup instead of growing forever.
+
+Also patched this release: version numbers across `package.json`,
+`package-lock.json` (which had drifted to a stale `0.5.62`), and this README were
+out of sync with the actual shipped build — all now consistent at `0.5.68`.
+`SECURITY.md`'s supported-version line was similarly stale and has been corrected.
 
 ## What's new in v0.5.63
 

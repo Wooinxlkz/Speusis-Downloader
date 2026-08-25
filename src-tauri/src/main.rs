@@ -209,7 +209,7 @@ fn main() {
     if let Ok(dir) = std::env::var("LOCALAPPDATA") {
         speusis_core::debug_log::init(std::path::PathBuf::from(dir).join("Speusis Downloader").join("debug.log"));
     }
-            speusis_core::debug_log::log(&format!("=== Speusis Downloader v{} starting ===", env!("CARGO_PKG_VERSION")));
+            speusis_core::debug_log::info(&format!("=== Speusis Downloader v{} starting ===", env!("CARGO_PKG_VERSION")));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -317,6 +317,10 @@ fn main() {
             });
             let settings_snapshot = Arc::new(StdRwLock::new(loaded_settings.clone()));
             let settings_shared = Arc::new(Mutex::new(settings_manager));
+            // Re-apply the persisted debug log level now that real settings
+            // are loaded - up to this point debug_log was using its Info
+            // default from the eager init() call above.
+            speusis_core::debug_log::set_level_from_str(&loaded_settings.debug_log_level);
 
             // Storing auto_start_with_system=true as the default setting
             // only changes what gets saved to disk - it doesn't actually

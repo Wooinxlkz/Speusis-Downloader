@@ -5,6 +5,51 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.68 — Debug logging: leveled, rotating, off by default
+
+`speusis-core/src/debug_log.rs` was previously a minimal always-on file logger:
+every one of its 50+ call sites across `commands.rs`/`main.rs` fired
+unconditionally, and the target file (`debug.log`) had no size cap, so it grew
+without bound over a long-running install. Its own doc comment called it
+"temporary/diagnostic" and said most call sites should eventually be "deleted or
+gated behind a debug flag" - this release does the gating.
+
+- **Levels**: `Error` / `Warn` / `Info` / `Debug` / `Trace`. Every pre-existing
+  call site (`debug_log::log(...)`) is unchanged in source and now maps to
+  `Debug` severity - so nothing needed to be touched at any of the 52 call
+  sites, they just honor the level filter now instead of always firing.
+- **New setting**: `debug_log_level` in `AppSettings` (default `"info"`), so a
+  normal install stays quiet. Settings → Security → Diagnostics has a new
+  "Debug log level" dropdown wired to it (English strings added to
+  `languages/en.json`; the other 18 language files fall back to English for
+  these specific strings until translated, same pattern as the context-menu
+  gap noted in v0.5.58).
+- **Applied live, no restart**: read from persisted settings at startup
+  (`main.rs`'s `setup()`) and re-applied instantly on every
+  `commands::settings_update` call, the same pattern the existing
+  security-check toggles use.
+- **Rotation**: once `debug.log` reaches 5&nbsp;MB it's renamed to
+  `debug.log.1` (dropping any previous `.1`) and a fresh file is started.
+  Rotation and the write itself are both best-effort - a locked file or a
+  permissions error just skips that write, never a crash.
+- **Old settings.json files upgrade safely**: `SettingsManager::load()` merges
+  saved JSON on top of `AppSettings::defaults()`, so a settings file saved
+  before this release (missing `debugLogLevel`) simply picks up the new
+  `"info"` default instead of failing to parse.
+
+**Also in this release (documentation/version consistency, no code behavior
+changes):**
+
+- `package.json`, `package-lock.json` (which had drifted to a stale `0.5.62`,
+  further behind than `package.json`'s own `0.5.67`), `src-tauri/Cargo.toml`,
+  and `README.md`'s header/badge are all now consistently `0.5.68`.
+- `SECURITY.md`'s "supported versions" line was still pointing at `v0.5.51`;
+  updated to reflect that only the latest release is supported, as the policy
+  already stated in words.
+- `LICENSE.md` still has unfilled placeholders (governing-jurisdiction,
+  liability-cap amount, contact email) - flagged, not fabricated. Needs the
+  actual values filled in before this document is relied on.
+
 ## v0.5.67 — Local security checks (with UI)
 
 New, fully offline security checks that run automatically after every completed
@@ -42,6 +87,13 @@ Shows nothing extra when clean, so it never clutters a normal download.
 > compile-verified against a real `cargo build` - please build and report back if
 > anything errors.
 
+
+**Follow-up fix (same v0.5.67):** the React auto-update dialog from v0.5.66 had a
+sizing bug - its window was fixed at 480x340, but the actual card content is only
+~190px tall, leaving a large empty dead area below it that also couldn't be dragged
+(only the thin title strip was draggable). Fixed by right-sizing the window to
+480x230, centering the card within it, and making the whole background draggable
+as a fallback - not just the title bar.
 ---
 
 ## v0.5.66 — Auto-update dialog rebuilt in React

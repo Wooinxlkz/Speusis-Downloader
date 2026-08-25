@@ -217,6 +217,13 @@ pub struct AppSettings {
     /// Fully offline, independently toggleable from
     /// type_spoof_check_enabled above.
     pub extension_risk_check_enabled: bool,
+    /// Minimum severity written to debug.log by speusis-core::debug_log
+    /// ("error" | "warn" | "info" | "debug" | "trace"). Defaults to
+    /// "info" so the ~50 legacy debug()-level call sites stay quiet on
+    /// a normal install; set to "debug" or "trace" to get the old
+    /// always-on behavior back for troubleshooting. Applied instantly
+    /// on change, no restart required.
+    pub debug_log_level: String,
 }
 
 impl AppSettings {
@@ -265,6 +272,7 @@ impl AppSettings {
             temp_dir: String::new(),
             type_spoof_check_enabled: true,
             extension_risk_check_enabled: true,
+            debug_log_level: "info".to_string(),
         }
     }
 }
