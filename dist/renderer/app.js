@@ -69,6 +69,8 @@ const catPanel        = document.getElementById("catPanel");
 const themeMode       = document.getElementById("themeMode");
 const accentColor     = document.getElementById("accentColor");
 const scanCompletedFiles = document.getElementById("scanCompletedFiles");
+const typeSpoofCheck  = document.getElementById("typeSpoofCheck");
+const extensionRiskCheck = document.getElementById("extensionRiskCheck");
 const settingsDet     = document.getElementById("settingsDetails");
 const maxConcurrentEl  = document.getElementById("maxConcurrentDownloads");
 const defaultSegmentsEl = document.getElementById("defaultSegments");
@@ -722,9 +724,11 @@ function upsertRow(task) {
   }
 
   const scanKey = t.securityScan ? `${t.securityScan.status}:${t.securityScan.message || ""}` : "";
-  if (row.dataset.status !== t.status || row.dataset.scan !== scanKey) {
+  const localFindingsKey = t.localSecurityFindings ? `${t.localSecurityFindings.findings?.length || 0}` : "";
+  if (row.dataset.status !== t.status || row.dataset.scan !== scanKey || row.dataset.localFindings !== localFindingsKey) {
     row.dataset.status = t.status;
     row.dataset.scan = scanKey;
+    row.dataset.localFindings = localFindingsKey;
     row.querySelector('[data-role="status"]').innerHTML = statusBadge(t);
     const actions = row.querySelector('[data-role="actions"]');
     actions.innerHTML = buildActionButtons(t.status, name, t.kind);
@@ -1155,6 +1159,11 @@ api.onEvent((event, payload) => {
     });
     upsertRow(taskStore.get(payload.id));
     setStatus(`Security scan ${payload.status}: ${payload.message}`);
+  }
+  if (event === "LocalSecurityFindingsUpdated") {
+    const task = taskStore.get(payload.id) || {};
+    taskStore.set(payload.id, { ...task, localSecurityFindings: payload.report });
+    upsertRow(taskStore.get(payload.id));
   }
   if (event === "DownloadFailed") {
     const task = taskStore.get(payload.id) || {};
@@ -1743,6 +1752,8 @@ function applyAppearance(s) {
   if (themeMode)   themeMode.value   = s.themeMode   || "system";
   if (accentColor) accentColor.value = s.accentColor || "blue";
   if (scanCompletedFiles) scanCompletedFiles.checked = s.scanCompletedFiles !== false;
+  if (typeSpoofCheck) typeSpoofCheck.checked = s.typeSpoofCheckEnabled !== false;
+  if (extensionRiskCheck) extensionRiskCheck.checked = s.extensionRiskCheckEnabled !== false;
 }
 function applyTheme(mode) {
   document.body.dataset.theme = mode;
@@ -1789,6 +1800,8 @@ document.addEventListener("i18n:changed", () => {
   try { updateRegBadge(); } catch (e) {}
 });
 scanCompletedFiles?.addEventListener("change", () => api.updateSettings({ scanCompletedFiles: scanCompletedFiles.checked }).then(refreshSettings));
+typeSpoofCheck?.addEventListener("change", () => api.updateSettings({ typeSpoofCheckEnabled: typeSpoofCheck.checked }).then(refreshSettings));
+extensionRiskCheck?.addEventListener("change", () => api.updateSettings({ extensionRiskCheckEnabled: extensionRiskCheck.checked }).then(refreshSettings));
 
 document.getElementById("autoStartWithSystem")?.addEventListener("change", async e => {
   await api.setAutoStart?.(e.target.checked);

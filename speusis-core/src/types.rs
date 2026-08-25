@@ -104,6 +104,13 @@ pub struct DownloadTask {
     pub seed_ratio: Option<f64>,
     #[serde(rename = "securityScan")]
     pub security_scan: Option<SecurityScanInfo>,
+    /// Findings from the local, offline checks in speusis-core/src/security
+    /// (type-spoof + extension-risk). Deliberately a separate field from
+    /// `security_scan` above (the Defender/ClamAV scan) rather than
+    /// merged into it - additive, so nothing about the existing scan
+    /// flow or its UI changes.
+    #[serde(rename = "localSecurityFindings")]
+    pub local_security_findings: Option<crate::security::LocalSecurityReport>,
     /// Human-readable reason the download last failed (HEAD/GET status,
     /// network error, etc.). Previously this only ever went out as a
     /// one-shot DownloadFailed event and to debug.log - once a task sat
@@ -198,6 +205,18 @@ pub struct AppSettings {
     pub ip_blocklist_url: String,
     pub max_retries: u32,
     pub temp_dir: String,
+    /// Layer 1 of the local security checks (speusis-core/src/security) -
+    /// compares a completed file's real (magic-byte) type against its
+    /// extension. Fully offline, independently toggleable from
+    /// extension_risk_check_enabled below - either can be turned off
+    /// without affecting the other, or the existing Defender/ClamAV
+    /// scan in security_scanner.rs.
+    pub type_spoof_check_enabled: bool,
+    /// Layer 3 of the local security checks - flags high-risk
+    /// extensions and the "invoice.pdf.exe" double-extension trick.
+    /// Fully offline, independently toggleable from
+    /// type_spoof_check_enabled above.
+    pub extension_risk_check_enabled: bool,
 }
 
 impl AppSettings {
@@ -244,6 +263,8 @@ impl AppSettings {
             ip_blocklist_url: String::new(),
             max_retries: 5,
             temp_dir: String::new(),
+            type_spoof_check_enabled: true,
+            extension_risk_check_enabled: true,
         }
     }
 }
@@ -371,4 +392,16 @@ pub enum AppEvent {
     SchedulerStopped,
     BasketUrlDropped(BasketUrlDropped),
     IpBlocked(IpBlocked),
+    LocalSecurityFindingsUpdated(LocalSecurityFindingsUpdated),
+}
+
+/// Emitted after the local, offline checks (speusis-core/src/security)
+/// finish running against a completed download - separate from
+/// SecurityScanCompleted (the Defender/ClamAV scan) above, so this
+/// never changes when or how that existing event fires.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalSecurityFindingsUpdated {
+    pub id: String,
+    pub report: crate::security::LocalSecurityReport,
 }

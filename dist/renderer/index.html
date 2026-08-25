@@ -319,6 +319,16 @@
               <label class="toggle-wrap"><input type="checkbox" id="scanCompletedFiles" /><span class="toggle-track"></span> Scan completed files automatically</label>
             </div>
             <div class="settings-note" data-i18n="runs_after_a_file_finishes_downloading_you_can_d">Runs after a file finishes downloading. You can disable it anytime.</div>
+            <div class="settings-section-heading" style="margin-top:18px" data-i18n="local_checks_offline">Local checks (offline, no network)</div>
+            <div class="pf-row">
+              <label data-i18n="file_type_match">File type match</label>
+              <label class="toggle-wrap"><input type="checkbox" id="typeSpoofCheck" /><span class="toggle-track"></span> <span data-i18n="warn_type_mismatch">Warn if a file's real type doesn't match its extension</span></label>
+            </div>
+            <div class="pf-row">
+              <label data-i18n="risky_extensions">Risky extensions</label>
+              <label class="toggle-wrap"><input type="checkbox" id="extensionRiskCheck" /><span class="toggle-track"></span> <span data-i18n="warn_risky_extensions">Warn on high-risk extensions and disguised double extensions</span></label>
+            </div>
+            <div class="settings-note" data-i18n="local_checks_run_on_device">Run entirely on your device, right after a download finishes - no data ever leaves your computer for these two.</div>
             <div class="security-callout">
               <strong data-i18n="safer_downloads_fewer_surprises">Safer downloads, fewer surprises</strong>
               <span data-i18n="speusis_hands_completed_files_to_windows_defende">Speusis hands completed files to Windows Defender and reports the result beside the download.</span>

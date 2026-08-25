@@ -92,32 +92,66 @@ fn start_event_bridge(app: tauri::AppHandle, event_bus: EventBus) {
 /// these two events on `task.securityScan`, confirmed against the real source).
 fn start_security_scan_reactor(app: tauri::AppHandle, event_bus: EventBus, settings_snapshot: Arc<StdRwLock<speusis_core::types::AppSettings>>) {
     use speusis_core::security_scanner::scan_path_with_windows_defender;
-    use speusis_core::types::{SecurityScanCompleted, SecurityScanStarted};
+    use speusis_core::types::{SecurityScanCompleted, SecurityScanStarted, LocalSecurityFindingsUpdated};
 
     let mut rx = event_bus.subscribe();
     tauri::async_runtime::spawn(async move {
         loop {
             match rx.recv().await {
                 Ok(AppEvent::DownloadCompleted(completed)) => {
-                    let enabled = settings_snapshot.read().map(|s| s.scan_completed_files).unwrap_or(true);
-                    if !enabled {
-                        continue;
+                    let (scan_enabled, type_spoof_enabled, ext_risk_enabled) = settings_snapshot
+                        .read()
+                        .map(|s| (s.scan_completed_files, s.type_spoof_check_enabled, s.extension_risk_check_enabled))
+                        .unwrap_or((true, true, true));
+
+                    if scan_enabled {
+                        event_bus.emit(AppEvent::SecurityScanStarted(SecurityScanStarted {
+                            id: completed.id.clone(),
+                            path: completed.path.clone(),
+                            scanner: "Windows Defender".to_string(),
+                        }));
+                        let result = scan_path_with_windows_defender(&completed.path).await;
+                        event_bus.emit(AppEvent::SecurityScanCompleted(SecurityScanCompleted {
+                            id: completed.id.clone(),
+                            path: completed.path.clone(),
+                            scanner: result.scanner,
+                            status: result.status,
+                            message: result.message,
+                            output: result.output,
+                        }));
                     }
-                    event_bus.emit(AppEvent::SecurityScanStarted(SecurityScanStarted {
-                        id: completed.id.clone(),
-                        path: completed.path.clone(),
-                        scanner: "Windows Defender".to_string(),
-                    }));
-                    let result = scan_path_with_windows_defender(&completed.path).await;
-                    event_bus.emit(AppEvent::SecurityScanCompleted(SecurityScanCompleted {
-                        id: completed.id,
-                        path: completed.path,
-                        scanner: result.scanner,
-                        status: result.status,
-                        message: result.message,
-                        output: result.output,
-                    }));
-                    let _ = &app; // app handle kept for future use (e.g. native notification on threat)
+
+                    // Local, offline checks (type-spoof + extension-risk) -
+                    // independent of the Defender scan above: each of these
+                    // two has its own on/off toggle and runs (or doesn't)
+                    // regardless of whether scan_completed_files is on.
+                    if type_spoof_enabled || ext_risk_enabled {
+                        let filename = std::path::Path::new(&completed.path)
+                            .file_name()
+                            .map(|f| f.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        let report = speusis_core::security::run_local_checks(
+                            &completed.path,
+                            &filename,
+                            type_spoof_enabled,
+                            ext_risk_enabled,
+                        )
+                        .await;
+
+                        // Persist onto the in-memory task so a later task-list
+                        // fetch (not just the live event below) also reflects
+                        // it - mirrors how other reactors reach back into the
+                        // scheduler via AppState rather than only emitting.
+                        let state = app.state::<AppState>();
+                        if let Some(handle) = state.scheduler.task_handle(&completed.id).await {
+                            handle.lock().await.local_security_findings = Some(report.clone());
+                        }
+
+                        event_bus.emit(AppEvent::LocalSecurityFindingsUpdated(LocalSecurityFindingsUpdated {
+                            id: completed.id,
+                            report,
+                        }));
+                    }
                 }
                 Ok(_) => continue,
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,

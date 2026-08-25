@@ -5,6 +5,45 @@ project README; v0.5.58 documents the localization work in this build.
 
 ---
 
+## v0.5.67 — Local security checks (with UI)
+
+New, fully offline security checks that run automatically after every completed
+download, in a new `speusis-core/src/security/` module - separate from the existing
+Windows Defender scan in `security_scanner.rs`, which is untouched.
+
+- **Type-spoof check**: compares a file's real type (from its magic bytes) against
+its extension - e.g. catches a `.pdf` that's actually an `.exe`. Purely local, no
+network call, and only reports when the mismatch is positively confirmed - an
+unrecognized extension or unrecognized file signature is silently skipped rather
+than guessed at, so it can't produce a false positive.
+- **Extension-risk check**: flags a short, deliberately conservative list of
+extensions almost never used for legitimate downloads (`.scr`, `.vbs`, `.hta`, etc
+- ordinary things like `.exe`/`.msi` are intentionally NOT on this list), plus the
+"invoice.pdf.exe" double-extension disguise trick.
+- Both checks are **independently toggleable** (`type_spoof_check_enabled`,
+`extension_risk_check_enabled` in settings, on by default) - either can be turned
+off without affecting the other or the existing Defender scan.
+- **Never blocks, quarantines, or deletes anything** - every finding is purely
+informational, attached to the download as data. The user always keeps full
+control regardless of what a check reports.
+- Any I/O failure inside a check (file missing, permission error, etc.) is treated
+as "nothing to report", never as a finding - a failure can't masquerade as a
+security warning.
+
+- **Settings toggles**: Settings → Security now has a "Local checks" section with
+two switches, one per check, wired the same way as the existing Windows Defender
+toggle above it. Translated across all 19 languages.
+- **Status column badge**: a completed download that trips either check now shows
+a small "N finding(s)" badge in the Status cell, right next to the existing
+Defender "Clean"/"Threat" badge - same pattern, same place, hover for details.
+Shows nothing extra when clean, so it never clutters a normal download.
+
+> `package.json` and `Cargo.toml` bumped to `0.5.67`. This has not been
+> compile-verified against a real `cargo build` - please build and report back if
+> anything errors.
+
+---
+
 ## v0.5.66 — Auto-update dialog rebuilt in React
 
 The startup "New version of Speusis is available" dialog is now built with React,

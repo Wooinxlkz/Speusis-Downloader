@@ -10,6 +10,7 @@ pub mod scheduler;
 pub mod rss_manager;
 pub mod update_checker;
 pub mod security_scanner;
+pub mod security;
 pub mod plugin_manager;
 pub mod http_direct_downloader;
 pub mod ftp_downloader;

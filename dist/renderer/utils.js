@@ -75,6 +75,28 @@ export function scanBadge(scan) {
   return ` <span class="st-badge ${cls}"${title}>${window.tt ? window.tt(label) : label}</span>`;
 }
 
+// Badge for the local, offline security checks (speusis-core/src/security -
+// type-spoof + extension-risk) - deliberately separate from scanBadge()
+// above (the Windows Defender scan) so one can never overwrite or hide the
+// other; both can render side by side in the same Status cell. Only ever
+// informational: a count + tooltip, never anything that implies the file
+// was blocked or altered.
+export function localFindingsBadge(report) {
+  if (!report) return "";
+  const count = report.findings?.length || 0;
+  if (count === 0) {
+    // Nothing to show when clean - scanBadge()'s "Clean" already covers
+    // the reassuring case, so this stays silent rather than adding a
+    // second redundant "Clean"-looking pill next to it.
+    return "";
+  }
+  const title = report.findings.map(f => f.summary).join(" \u2022 ");
+  // Not run through tt() - the count makes this a different string every
+  // time, so there's no fixed dictionary entry to match against anyway.
+  const label = count === 1 ? "1 finding" : `${count} findings`;
+  return ` <span class="st-badge st-failed" title="${escHtml(title)}">${label}</span>`;
+}
+
 export function statusBadge(task) {
   const status = task?.status;
   const map = {
@@ -89,7 +111,7 @@ export function statusBadge(task) {
   const title = status === "failed" && task?.lastError
     ? ` title="${escHtml(task.lastError)}"`
     : "";
-  return `<span class="st-badge ${cls}"${title}>${window.tt ? window.tt(label) : label}</span>${scanBadge(task?.securityScan)}`;
+  return `<span class="st-badge ${cls}"${title}>${window.tt ? window.tt(label) : label}</span>${scanBadge(task?.securityScan)}${localFindingsBadge(task?.localSecurityFindings)}`;
 }
 
 /* ── Row SVG action buttons (shared by row actions + tracer panel) ── */

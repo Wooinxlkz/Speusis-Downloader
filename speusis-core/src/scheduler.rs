@@ -76,6 +76,7 @@ impl Scheduler {
             uploaded_bytes: None,
             seed_ratio: None,
             security_scan: None,
+            local_security_findings: None,
             last_error: None,
         };
         let snapshot = task.clone();
